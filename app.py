@@ -6,9 +6,9 @@ from github import Github
 # 1. CONFIGURAÇÃO DA PÁGINA
 st.set_page_config(page_title="GLOBAL - Movimento de Fidelidade", page_icon="🔵", layout="centered")
 
-# Títulos visuais simplificados e seguros para evitar erros de leitura do servidor na nuvem
-st.markdown("<h1 style='color: #2563eb; text-align: center; margin-bottom: 5px;'>GLOBAL</h1>", unsafe_html=True)
-st.markdown("<p style='text-align: center; color: #64748b; font-size: 0.95rem; font-style: italic; margin-bottom: 25px;'>Um movimento que une lojas e clientes</p>", unsafe_html=True)
+# Exibição dos títulos usando funções nativas e limpas do Streamlit
+st.title("GLOBAL")
+st.write("Um movimento que une lojas e clientes")
 
 # 2. CONEXÃO DIRETA COM O GITHUB (BANCO DE DADOS JSON)
 try:
@@ -29,7 +29,6 @@ def ler_dados_github():
         dados = json.loads(file_content.decoded_content.decode())
         return dados, file_content.sha
     except:
-        # Se o arquivo não existir ainda no GitHub, cria um modelo inicial básico
         dados_iniciais = {
             "merchantCode": "#loja123",
             "clients": {
@@ -87,9 +86,8 @@ elif st.session_state.tela == "cliente":
     tel = st.session_state.usuario_logado
     pontos = dados["clients"].get(tel, 0)
     
-    st.markdown("<p style='text-align: center;'>Olá! Seu saldo atual de pontos é:</p>", unsafe_html=True)
-    st.markdown(f"<div style='font-size: 3.5rem; font-weight: bold; text-align: center; color: #10b981; margin: 15px 0;'>{pontos}</div>", unsafe_html=True)
-    st.markdown(f"<p style='text-align: center; color: #64748b; font-size: 0.85rem;'>Registrado sob o telefone: {tel}</p>", unsafe_html=True)
+    st.write(f"Olá! Seu saldo atual sob o telefone {tel} é:")
+    st.info(f"{pontos} pontos acumulados")
     
     if st.button("Sair"):
         st.session_state.tela = "login"
@@ -137,7 +135,7 @@ elif st.session_state.tela == "gestor":
             else:
                 dados["merchantCode"] = novo_codigo
                 salvar_dados_github(dados, file_sha)
-                st.success("Código updated com sucesso!")
+                st.success("Código atualizado com sucesso!")
                 st.rerun()
 
     st.markdown("#### Métricas de Crescimento Real")
