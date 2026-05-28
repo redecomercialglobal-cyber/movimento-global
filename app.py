@@ -1,27 +1,19 @@
 import streamlit as st
 import json
 import os
-from github import Github  # Você precisará da biblioteca PyGithub
+from github import Github
 
 # 1. CONFIGURAÇÃO DA PÁGINA
 st.set_page_config(page_title="GLOBAL - Movimento de Fidelidade", page_icon="🔵", layout="centered")
 
-# Visual limpo padrão do GLOBAL
-st.markdown("""
-    <style>
-    .main h1 { color: #2563eb; text-align: center; margin-bottom: 5px; }
-    .subtitle { text-align: center; color: #64748b; font-size: 0.95rem; font-style: italic; margin-bottom: 25px; }
-    div.stButton > button { width: 100%; background-color: #2563eb; color: white; border-radius: 6px; padding: 10px; font-weight: bold; }
-    div.stButton > button:hover { background-color: #1d4ed8; border-color: #1d4ed8; }
-    .points-display { font-size: 3.5rem; font-weight: bold; text-align: center; color: #10b981; margin: 15px 0; }
-    </style>
-""", unsafe_html=True)
+# Títulos visuais simplificados e seguros para evitar erros de leitura do servidor na nuvem
+st.markdown("<h1 style='color: #2563eb; text-align: center; margin-bottom: 5px;'>GLOBAL</h1>", unsafe_html=True)
+st.markdown("<p style='text-align: center; color: #64748b; font-size: 0.95rem; font-style: italic; margin-bottom: 25px;'>Um movimento que une lojas e clientes</p>", unsafe_html=True)
 
 # 2. CONEXÃO DIRETA COM O GITHUB (BANCO DE DADOS JSON)
-# O Streamlit pegará o Token e o nome do repositório das configurações secretas que faremos no Passo 3
 try:
     GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
-    REPO_NAME = st.secrets["REPO_NAME"] # Exemplo: "seu-usuario/movimento-global"
+    REPO_NAME = st.secrets["REPO_NAME"]
 except:
     st.error("Configure os Segredos (Secrets) no painel do Streamlit antes de continuar.")
     st.stop()
@@ -72,10 +64,7 @@ def formatar_telefone(tel):
 
 # --- TELA DE LOGIN ---
 if st.session_state.tela == "login":
-    st.markdown("<h1>GLOBAL</h1>", unsafe_html=True)
-    st.markdown("<div class='subtitle'>Um movimento que une lojas e clientes</div>", unsafe_html=True)
-    
-    login_input = st.text_input("Identificação (Telefone)", placeholder="(00) 00000-0000").strip()
+    login_input = st.text_input("Identificação (Telefone ou Código)", placeholder="(00) 00000-0000").strip()
     
     if st.button("Entrar"):
         if login_input == "@Romanos0828":
@@ -95,14 +84,11 @@ if st.session_state.tela == "login":
 
 # --- TELA DO CLIENTE ---
 elif st.session_state.tela == "cliente":
-    st.markdown("<h1>GLOBAL</h1>", unsafe_html=True)
-    st.markdown("<div class='subtitle'>Sua Loja Parceira</div>", unsafe_html=True)
-    
     tel = st.session_state.usuario_logado
     pontos = dados["clients"].get(tel, 0)
     
     st.markdown("<p style='text-align: center;'>Olá! Seu saldo atual de pontos é:</p>", unsafe_html=True)
-    st.markdown(f"<div class='points-display'>{pontos}</div>", unsafe_html=True)
+    st.markdown(f"<div style='font-size: 3.5rem; font-weight: bold; text-align: center; color: #10b981; margin: 15px 0;'>{pontos}</div>", unsafe_html=True)
     st.markdown(f"<p style='text-align: center; color: #64748b; font-size: 0.85rem;'>Registrado sob o telefone: {tel}</p>", unsafe_html=True)
     
     if st.button("Sair"):
@@ -111,8 +97,8 @@ elif st.session_state.tela == "cliente":
 
 # --- TELA DO LOJISTA ---
 elif st.session_state.tela == "lojista":
-    st.markdown("<h1>Painel do Lojista</h1>", unsafe_html=True)
-    st.markdown("<div class='subtitle'>Registrar Vendas no Movimento GLOBAL</div>", unsafe_html=True)
+    st.markdown("### Painel do Lojista")
+    st.caption("Registrar Vendas no Movimento GLOBAL")
     
     valor_venda = st.number_input("Valor da Venda (R$)", min_value=0.0, step=0.50, format="%.2f")
     tel_cliente = st.text_input("Telefone do Cliente", placeholder="(00) 00000-0000")
@@ -126,7 +112,6 @@ elif st.session_state.tela == "lojista":
         else:
             novos_pontos = int(valor_venda * 10)
             
-            # Altera os dados locais e sincroniza com o GitHub
             if tel_formatado in dados["clients"]:
                 dados["clients"][tel_formatado] += novos_pontos
             else:
@@ -142,7 +127,7 @@ elif st.session_state.tela == "lojista":
 
 # --- TELA DO GESTOR ---
 elif st.session_state.tela == "gestor":
-    st.markdown("<h1>Painel do Gestor (GLOBAL)</h1>", unsafe_html=True)
+    st.markdown("### Painel do Gestor (GLOBAL)")
     
     with st.expander("⚙️ Configuração do Lojista", expanded=False):
         novo_codigo = st.text_input("Código de Acesso do Lojista:", value=dados["merchantCode"])
@@ -152,10 +137,10 @@ elif st.session_state.tela == "gestor":
             else:
                 dados["merchantCode"] = novo_codigo
                 salvar_dados_github(dados, file_sha)
-                st.success("Código atualizado com sucesso!")
+                st.success("Código updated com sucesso!")
                 st.rerun()
 
-    st.markdown("### Métricas de Crescimento Real")
+    st.markdown("#### Métricas de Crescimento Real")
     total_pontos = sum(dados["clients"].values())
     equivalencia_dinheiro = total_pontos / 10
     
@@ -163,11 +148,10 @@ elif st.session_state.tela == "gestor":
     col1.metric("Total de Pontos", f"{total_pontos} pts")
     col2.metric("Equivalência em Dinheiro", f"R$ {equivalencia_dinheiro:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
     
-    st.markdown("### Lista de Clientes e Pontuações")
+    st.markdown("#### Lista de Clientes e Pontuações")
     if not dados["clients"]:
         st.info("Nenhum cliente cadastrado ainda.")
     else:
-        # Cria cópia para iteração segura enquanto deleta itens
         lista_clientes = list(dados["clients"].items())
         for phone, points in lista_clientes:
             c_col1, c_col2, c_col3 = st.columns([2, 1, 1])
