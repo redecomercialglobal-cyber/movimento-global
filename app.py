@@ -7,9 +7,9 @@ import os
 st.set_page_config(page_title="GLOBAL", page_icon="🌐", layout="centered")
 
 # --- ESTILIZAÇÃO CUSTOMIZADA (CSS) ---
-# Força o visual moderno, botões azuis e cantos arredondados do seu segundo vídeo
-st.markdown("""
-    <style>
+# Força o visual moderno, botões azuis e cantos arredondados do seu vídeo
+css_style = """
+<style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
     
     * {
@@ -56,8 +56,9 @@ st.markdown("""
     div.stButton > button[key="btn_sair"]:hover {
         background-color: #DC2626 !important;
     }
-    </style>
-""", unsafe_allowed_html=True)
+</style>
+"""
+st.markdown(css_style, unsafe_allowed_html=True)
 
 # --- CONFIGURAÇÕES DE ACESSO AO GITHUB ---
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
@@ -169,7 +170,6 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
     
     st.subheader("Registrar Vendas no Movimento GLOBAL")
     
-    # Campo numérico seguro contra letras (Simula R$ 0,00)
     valor_venda = st.number_input("Valor da Venda (R$)", min_value=0.0, value=0.0, step=0.50, format="%.2f")
     tel_cliente_input = st.text_input("Telefone do Cliente", placeholder="(00) 00000-0000")
     
@@ -196,7 +196,6 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
 
     st.write("---")
     
-    # Área do Gestor compactada e elegante
     with st.expander("⚙️ Painel de Gestão e Configurações"):
         st.subheader("Métricas de Crescimento Real")
         
@@ -232,7 +231,7 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
                     dados["config"] = {}
                 dados["config"]["codigo_lojista"] = novo_codigo.strip()
                 salvar_dados_github(dados, sha)
-                st.success("Código de acesso atualizado!")
+                st.success("Código de acesso updated!")
                 st.rerun()
                 
         if st.button("🚨 Zerar Todos os Clientes", type="primary"):
