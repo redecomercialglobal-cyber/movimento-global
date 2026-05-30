@@ -169,7 +169,8 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
     
     st.subheader("Registrar Vendas no Movimento GLOBAL")
     
-    valor_venda = st.number_input("Valor da Venda (R$)", min_value=0.0, value=0.0, step=0.50, format="%.2f")
+    # max_value adicionado para travar digitações infinitas por engano
+    valor_venda = st.number_input("Valor da Venda (R$)", min_value=0.0, max_value=100000.0, value=0.0, step=0.50, format="%.2f")
     tel_cliente_input = st.text_input("Telefone do Cliente", placeholder="(00) 00000-0000", max_chars=15)
     
     if st.button("Enviar Pontos"):
@@ -199,9 +200,15 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
         st.subheader("Métricas de Crescimento Real")
         
         todos_clientes = dados.get("clientes", {})
-        total_pontos_sistema = sum(todos_clientes.values())
-        equivalenca_dinheiro = total_pontos_sistema * 0.10
         
+        # Proteção contra falhas de renderização numérica
+        try:
+            total_pontos_sistema = sum(int(v) for v in todos_clientes.values())
+            equivalenca_dinheiro = total_pontos_sistema * 0.10
+        except Exception:
+            total_pontos_sistema = 0
+            equivalenca_dinheiro = 0.0
+
         col1, col2 = st.columns(2)
         col1.metric("Total de Pontos Emitidos", f"{total_pontos_sistema} pts")
         col2.metric("Equivalência Estimada", f"R$ {equivalenca_dinheiro:,.2f}")
