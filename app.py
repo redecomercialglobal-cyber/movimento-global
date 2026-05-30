@@ -9,7 +9,7 @@ st.set_page_config(page_title="GLOBAL", page_icon="🌐", layout="centered")
 # --- ESTILIZAÇÃO CUSTOMIZADA (CSS) ---
 css_style = """
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght=400;600;700&display=swap');
     
     * {
         font-family: 'Inter', sans-serif;
@@ -122,7 +122,7 @@ if not st.session_state.logado:
     id_input = st.text_input("Identificação (Telefone ou Código)", placeholder="(00) 00000-0000", max_chars=15)
     id_limpo = id_input.strip()
     
-    if st.button("Entrar"):
+    if st.button("Entrar", key="btn_entrar_login"):
         if id_limpo == CODIGO_LOJISTA:
             st.session_state.logado = True
             st.session_state.tipo_usuario = "lojista"
@@ -169,11 +169,10 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
     
     st.subheader("Registrar Vendas no Movimento GLOBAL")
     
-    # max_value adicionado para travar digitações infinitas por engano
     valor_venda = st.number_input("Valor da Venda (R$)", min_value=0.0, max_value=100000.0, value=0.0, step=0.50, format="%.2f")
     tel_cliente_input = st.text_input("Telefone do Cliente", placeholder="(00) 00000-0000", max_chars=15)
     
-    if st.button("Enviar Pontos"):
+    if st.button("Enviar Pontos", key="btn_enviar_pontos_lojista"):
         tel_cliente = formatar_telefone(tel_cliente_input)
         if not tel_cliente or len([c for c in tel_cliente if c.isdigit()]) < 10:
             st.error("Insira um número de telefone válido do cliente para computar os pontos.")
@@ -201,7 +200,6 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
         
         todos_clientes = dados.get("clientes", {})
         
-        # Proteção contra falhas de renderização numérica
         try:
             total_pontos_sistema = sum(int(v) for v in todos_clientes.values())
             equivalenca_dinheiro = total_pontos_sistema * 0.10
@@ -217,11 +215,12 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
         st.subheader("Lista de Clientes Cadastrados")
         
         if todos_clientes:
-            for cli, pts in list(todos_clientes.items()):
+            # Uso de enumerate para gerar índices limpos e numéricos, evitando quebra nas keys
+            for idx, (cli, pts) in enumerate(list(todos_clientes.items())):
                 col_c, col_p, col_a = st.columns([2, 1, 1])
                 col_c.write(f"📱 {cli}")
                 col_p.write(f"**{pts}** pts")
-                if col_a.button("Excluir", key=f"del_{cli}"):
+                if col_a.button("Excluir", key=f"del_item_{idx}"):
                     del dados["clientes"][cli]
                     salvar_dados_github(dados, sha)
                     st.rerun()
@@ -230,8 +229,8 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
             
         st.write("---")
         st.subheader("Alterar Código de Acesso do Lojista")
-        novo_codigo = st.text_input("Novo Código", value=CODIGO_LOJISTA)
-        if st.button("Salvar Novo Código"):
+        novo_codigo = st.text_input("Novo Código", value=CODIGO_LOJISTA, key="input_novo_codigo_lojista")
+        if st.button("Salvar Novo Código", key="btn_salvar_codigo_lojista"):
             if novo_codigo.strip():
                 if "config" not in dados:
                     dados["config"] = {}
@@ -240,7 +239,7 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
                 st.success("Código de acesso atualizado!")
                 st.rerun()
                 
-        if st.button("🚨 Zerar Todos os Clientes", type="primary"):
+        if st.button("🚨 Zerar Todos os Clientes", type="primary", key="btn_reset_completo_sistema"):
             dados["clientes"] = {}
             salvar_dados_github(dados, sha)
             st.success("Banco de dados resetado!")
