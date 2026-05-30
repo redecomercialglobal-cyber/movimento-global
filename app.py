@@ -1,178 +1,247 @@
 import streamlit as st
 import json
-import os
 from github import Github
+import os
 
-# 1. CONFIGURAÇÃO DA PÁGINA
-st.set_page_config(page_title="GLOBAL - Movimento de Fidelidade", page_icon="🔵", layout="centered")
+# --- CONFIGURAÇÃO DA PÁGINA ---
+st.set_page_config(page_title="GLOBAL", page_icon="🌐", layout="centered")
 
-# Exibição dos títulos usando funções nativas e limpas do Streamlit
-st.title("GLOBAL")
-st.write("Um movimento que une lojas e clientes")
+# --- ESTILIZAÇÃO CUSTOMIZADA (CSS) ---
+# Força o visual moderno, botões azuis e cantos arredondados do seu segundo vídeo
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    
+    * {
+        font-family: 'Inter', sans-serif;
+    }
+    
+    /* Estilo dos Títulos */
+    .main-title {
+        font-size: 42px;
+        font-weight: 700;
+        color: #1E3A8A;
+        margin-bottom: 5px;
+        text-align: left;
+    }
+    .main-subtitle {
+        font-size: 16px;
+        color: #6B7280;
+        margin-bottom: 35px;
+        text-align: left;
+    }
+    
+    /* Botão Primário (Entrar / Enviar Pontos) */
+    div.stButton > button:first-child {
+        background-color: #2563EB !important;
+        color: white !important;
+        font-size: 16px !important;
+        font-weight: 600 !important;
+        padding: 12px 24px !important;
+        border-radius: 8px !important;
+        border: none !important;
+        width: 100% !important;
+        transition: all 0.2s ease;
+    }
+    div.stButton > button:first-child:hover {
+        background-color: #1D4ED8 !important;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+    }
+    
+    /* Botão Secundário (Sair) */
+    div.stButton > button[key="btn_sair"] {
+        background-color: #EF4444 !important;
+        color: white !important;
+    }
+    div.stButton > button[key="btn_sair"]:hover {
+        background-color: #DC2626 !important;
+    }
+    </style>
+""", unsafe_allowed_html=True)
 
-# 2. CONEXÃO DIRETA COM O GITHUB (BANCO DE DADOS JSON)
-try:
-    GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
-    REPO_NAME = st.secrets["REPO_NAME"]
-except:
-    st.error("Configure os Segredos (Secrets) no painel do Streamlit antes de continuar.")
-    st.stop()
-
-g = Github(GITHUB_TOKEN)
-repo = g.get_repo(REPO_NAME)
+# --- CONFIGURAÇÕES DE ACESSO AO GITHUB ---
+GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
+REPO_NAME = st.secrets["REPO_NAME"]
 FILE_PATH = "clientes.json"
 
-# Função para ler os dados do banco de dados direto do GitHub
-def ler_dados_github():
+# --- FUNÇÕES DE BANCO DE DADOS (GITHUB) ---
+def carregar_dados_github():
     try:
-        file_content = repo.get_contents(FILE_PATH)
-        dados = json.loads(file_content.decoded_content.decode())
-        return dados, file_content.sha
-    except:
-        dados_iniciais = {
-            "merchantCode": "#loja123",
-            "clients": {
-                "(11) 99999-9999": 250,
-                "(11) 98888-8888": 100
-            }
-        }
-        return dados_iniciais, None
+        g = Github(GITHUB_TOKEN)
+        repo = g.get_repo(REPO_NAME)
+        file_contents = repo.get_contents(FILE_PATH)
+        dados = json.loads(file_contents.decoded_content.decode("utf-8"))
+        return dados, file_contents.sha
+    except Exception:
+        return {"config": {"codigo_lojista": "#loja123"}, "clientes": {}}, None
 
-# Função para salvar os dados atualizados fazendo um Commit/Push automático para o GitHub
-def salvar_dados_github(novos_dados, sha):
-    conteudo_json = json.dumps(novos_dados, indent=4, ensure_ascii=False)
-    if sha:
-        repo.update_file(FILE_PATH, "Atualização de pontos - GLOBAL", conteudo_json, sha)
+def salvar_dados_github(dados, sha):
+    try:
+        g = Github(GITHUB_TOKEN)
+        repo = g.get_repo(REPO_NAME)
+        conteudo_json = json.dumps(dados, indent=4, ensure_ascii=False)
+        if sha:
+            repo.update_file(FILE_PATH, "Atualizando banco de dados GLOBAL", conteudo_json, sha)
+        else:
+            repo.create_file(FILE_PATH, "Iniciando banco de dados GLOBAL", conteudo_json)
+        return True
+    except Exception as e:
+        st.error(f"Erro ao salvar dados: {e}")
+        return False
+
+# --- CONTROLE DE SESSÃO DO USUÁRIO ---
+if "logado" not in st.session_state:
+    st.session_state.logado = False
+if "tipo_usuario" not in st.session_state:
+    st.session_state.tipo_usuario = None
+if "usuario_atual" not in st.session_state:
+    st.session_state.usuario_atual = None
+
+dados, sha = carregar_dados_github()
+CODIGO_LOJISTA = dados.get("config", {}).get("codigo_lojista", "#loja123")
+
+# --- MÁSCARAS E VALIDAÇÕES INTELEGENTES ---
+def formatar_telefone(texto):
+    apenas_numeros = "".join([c for c in texto if c.isdigit()])
+    apenas_numeros = apenas_numeros[:11]
+    
+    if len(apenas_numeros) == 0:
+        return ""
+    elif len(apenas_numeros) <= 2:
+        return f"({apenas_numeros}"
+    elif len(apenas_numeros) <= 7:
+        return f"({apenas_numeros[:2]}) {apenas_numeros[2:]}"
     else:
-        repo.create_file(FILE_PATH, "Inicialização do banco de dados - GLOBAL", conteudo_json)
+        return f"({apenas_numeros[:2]}) {apenas_numeros[2:7]}-{apenas_numeros[7:]}"
 
-# Carrega os dados mais recentes do GitHub
-dados, file_sha = ler_dados_github()
-
-# 3. CONTROLE DE SESSÃO
-if "tela" not in st.session_state:
-    st.session_state.tela = "login"
-if "usuario_logado" not in st.session_state:
-    st.session_state.usuario_logado = None
-
-def formatar_telefone(tel):
-    digitos = ''.join(filter(str.isdigit, tel))[:11]
-    if len(digitos) == 11:
-        return f"({digitos[:2]}) {digitos[2:7]}-{digitos[7:]}"
-    return tel
-
-# --- TELA DE LOGIN ---
-if st.session_state.tela == "login":
-    login_input = st.text_input("Identificação (Telefone ou Código)", placeholder="(00) 00000-0000").strip()
+# --- TELA DE LOGIN / IDENTIFICAÇÃO ---
+if not st.session_state.logado:
+    st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allowed_html=True)
+    st.markdown('<div class="main-subtitle">Um movimento que une lojas e clientes</div>', unsafe_allowed_html=True)
+    
+    id_input = st.text_input("Identificação (Telefone ou Código)", placeholder="(00) 00000-0000")
+    id_limpo = id_input.strip()
     
     if st.button("Entrar"):
-        if login_input == "@Romanos0828":
-            st.session_state.tela = "gestor"
+        if id_limpo == CODIGO_LOJISTA:
+            st.session_state.logado = True
+            st.session_state.tipo_usuario = "lojista"
             st.rerun()
-        elif login_input == dados["merchantCode"]:
-            st.session_state.tela = "lojista"
-            st.rerun()
-        else:
-            tel_formatado = formatar_telefone(login_input)
-            if len(''.join(filter(str.isdigit, tel_formatado))) == 11:
-                st.session_state.usuario_logado = tel_formatado
-                st.session_state.tela = "cliente"
+        elif id_limpo:
+            tel_formatado = formatar_telefone(id_limpo)
+            if len([c for c in id_limpo if c.isdigit()]) >= 10:
+                st.session_state.logado = True
+                st.session_state.tipo_usuario = "cliente"
+                st.session_state.usuario_atual = tel_formatado if tel_formatado else id_limpo
                 st.rerun()
             else:
-                st.error("Identificação inválida. Digite seu telefone com DDD ou códigos de acesso.")
+                st.warning("Por favor, digite um número de telefone válido com DDD ou código do lojista.")
+        else:
+            st.error("O campo de identificação não pode estar vazio.")
 
 # --- TELA DO CLIENTE ---
-elif st.session_state.tela == "cliente":
-    tel = st.session_state.usuario_logado
-    pontos = dados["clients"].get(tel, 0)
+elif st.session_state.logado and st.session_state.tipo_usuario == "cliente":
+    st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allowed_html=True)
+    st.markdown('<div class="main-subtitle">Sua Loja Parceira</div>', unsafe_allowed_html=True)
     
-    st.write(f"Olá! Seu saldo atual sob o telefone {tel} é:")
-    st.info(f"{pontos} pontos acumulados")
+    cliente = st.session_state.usuario_atual
+    pontos = dados.get("clientes", {}).get(cliente, 0)
     
-    if st.button("Sair"):
-        st.session_state.tela = "login"
+    st.markdown(f"Olá! Seu saldo atual de pontos registrado sob o telefone **{cliente}** é:")
+    
+    st.markdown(f"""
+        <div style="background-color: #EFF6FF; border: 2px solid #BFDBFE; border-radius: 12px; padding: 25px; text-align: center; margin: 20px 0;">
+            <span style="font-size: 48px; font-weight: 700; color: #1E40AF;">{pontos}</span>
+            <p style="margin: 0; color: #1E40AF; font-weight: 600;">pontos acumulados</p>
+        </div>
+    """, unsafe_allowed_html=True)
+    
+    if st.button("Sair", key="btn_sair"):
+        st.session_state.logado = False
+        st.session_state.tipo_usuario = None
+        st.session_state.usuario_atual = None
         st.rerun()
 
-# --- TELA DO LOJISTA ---
-elif st.session_state.tela == "lojista":
-    st.markdown("### Painel do Lojista")
-    st.caption("Registrar Vendas no Movimento GLOBAL")
+# --- PAINEL DO LOJISTA ---
+elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
+    st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allowed_html=True)
+    st.markdown('<div class="main-subtitle">Painel do Lojista</div>', unsafe_allowed_html=True)
     
-    valor_venda = st.number_input("Valor da Venda (R$)", min_value=0.0, step=0.50, format="%.2f")
-    tel_cliente = st.text_input("Telefone do Cliente", placeholder="(00) 00000-0000")
+    st.subheader("Registrar Vendas no Movimento GLOBAL")
+    
+    # Campo numérico seguro contra letras (Simula R$ 0,00)
+    valor_venda = st.number_input("Valor da Venda (R$)", min_value=0.0, value=0.0, step=0.50, format="%.2f")
+    tel_cliente_input = st.text_input("Telefone do Cliente", placeholder="(00) 00000-0000")
     
     if st.button("Enviar Pontos"):
-        tel_formatado = formatar_telefone(tel_cliente)
-        if len(''.join(filter(str.isdigit, tel_formatado))) != 11:
-            st.error("Por favor, insira um telefone válido com DDD.")
+        tel_cliente = formatar_telefone(tel_cliente_input)
+        if not tel_cliente or len([c for c in tel_cliente if c.isdigit()]) < 10:
+            st.error("Insira um número de telefone válido do cliente para computar os pontos.")
         elif valor_venda <= 0:
-            st.error("Insira um valor de venda maior que R$ 0,00.")
+            st.error("O valor da venda precisa ser maior que R$ 0,00.")
         else:
-            novos_pontos = int(valor_venda * 10)
+            pontos_novos = int(valor_venda)
             
-            if tel_formatado in dados["clients"]:
-                dados["clients"][tel_formatado] += novos_pontos
-            else:
-                dados["clients"][tel_formatado] = novos_pontos
+            if "clientes" not in dados:
+                dados["clientes"] = {}
                 
-            salvar_dados_github(dados, file_sha)
-            st.success(f"Sucesso! Creditados {novos_pontos} pontos para o cliente {tel_formatado} no GitHub!")
-            st.balloons()
-
-    if st.button("Sair"):
-        st.session_state.tela = "login"
-        st.rerun()
-
-# --- TELA DO GESTOR ---
-elif st.session_state.tela == "gestor":
-    st.markdown("### Painel do Gestor (GLOBAL)")
-    
-    with st.expander("⚙️ Configuração do Lojista", expanded=False):
-        novo_codigo = st.text_input("Código de Acesso do Lojista:", value=dados["merchantCode"])
-        if st.button("Salvar Novo Código"):
-            if not novo_codigo.startswith("#"):
-                st.error("Por segurança, o código precisa começar com '#'!")
+            if tel_cliente in dados["clientes"]:
+                dados["clientes"][tel_cliente] += pontos_novos
             else:
-                dados["merchantCode"] = novo_codigo
-                salvar_dados_github(dados, file_sha)
-                st.success("Código atualizado com sucesso!")
+                dados["clientes"][tel_cliente] = pontos_novos
+                
+            if salvar_dados_github(dados, sha):
+                st.success(f"Sucesso! {pontos_novos} pontos adicionados para {tel_cliente}.")
                 st.rerun()
 
-    st.markdown("#### Métricas de Crescimento Real")
-    total_pontos = sum(dados["clients"].values())
-    equivalencia_dinheiro = total_pontos / 10
+    st.write("---")
     
-    col1, col2 = st.columns(2)
-    col1.metric("Total de Pontos", f"{total_pontos} pts")
-    col2.metric("Equivalência em Dinheiro", f"R$ {equivalencia_dinheiro:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-    
-    st.markdown("#### Lista de Clientes e Pontuações")
-    if not dados["clients"]:
-        st.info("Nenhum cliente cadastrado ainda.")
-    else:
-        lista_clientes = list(dados["clients"].items())
-        for phone, points in lista_clientes:
-            c_col1, c_col2, c_col3 = st.columns([2, 1, 1])
-            c_col1.write(phone)
-            c_col2.write(f"{points} pts")
-            
-            if c_col3.button("Excluir", key=f"del_{phone}"):
-                st.warning(f"Tem certeza que deseja deletar {phone}?")
-                if st.button("Sim, confirmar exclusão", key=f"conf_{phone}"):
-                    del dados["clients"][phone]
-                    salvar_dados_github(dados, file_sha)
-                    st.success("Cliente removido!")
+    # Área do Gestor compactada e elegante
+    with st.expander("⚙️ Painel de Gestão e Configurações"):
+        st.subheader("Métricas de Crescimento Real")
+        
+        todos_clientes = dados.get("clientes", {})
+        total_pontos_sistema = sum(todos_clientes.values())
+        equivalenca_dinheiro = total_pontos_sistema * 0.10
+        
+        col1, col2 = st.columns(2)
+        col1.metric("Total de Pontos Emitidos", f"{total_pontos_sistema} pts")
+        col2.metric("Equivalência Estimada", f"R$ {equivalenca_dinheiro:,.2f}")
+        
+        st.write("---")
+        st.subheader("Lista de Clientes Cadastrados")
+        
+        if todos_clientes:
+            for cli, pts in list(todos_clientes.items()):
+                col_c, col_p, col_a = st.columns([2, 1, 1])
+                col_c.write(f"📱 {cli}")
+                col_p.write(f"**{pts}** pts")
+                if col_a.button("Excluir", key=f"del_{cli}"):
+                    del dados["clientes"][cli]
+                    salvar_dados_github(dados, sha)
                     st.rerun()
-                    
-        st.markdown("---")
-        if st.button("🚨 Zerar Todos os Clientes"):
-            st.error("Isso apagará TODOS os clientes do banco de dados do GitHub!")
-            if st.button("CONFIRMAR RESET TOTAL"):
-                dados["clients"] = {}
-                salvar_dados_github(dados, file_sha)
-                st.success("Banco de dados resetado com sucesso!")
+        else:
+            st.info("Nenhum cliente cadastrado no momento.")
+            
+        st.write("---")
+        st.subheader("Alterar Código de Acesso do Lojista")
+        novo_codigo = st.text_input("Novo Código", value=CODIGO_LOJISTA)
+        if st.button("Salvar Novo Código"):
+            if novo_codigo.strip():
+                if "config" not in dados:
+                    dados["config"] = {}
+                dados["config"]["codigo_lojista"] = novo_codigo.strip()
+                salvar_dados_github(dados, sha)
+                st.success("Código de acesso atualizado!")
                 st.rerun()
+                
+        if st.button("🚨 Zerar Todos os Clientes", type="primary"):
+            dados["clientes"] = {}
+            salvar_dados_github(dados, sha)
+            st.success("Banco de dados resetado!")
+            st.rerun()
 
-    if st.button("Sair"):
-        st.session_state.tela = "login"
+    if st.button("Sair", key="btn_sair"):
+        st.session_state.logado = False
+        st.session_state.tipo_usuario = None
         st.rerun()
