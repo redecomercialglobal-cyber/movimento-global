@@ -2,7 +2,9 @@
     "config": {
         "codigo_lojista": "#loja123"
     },
-    "clientes": {},
+    "clientes": {
+        "037.294.542-26": 20
+    },
     "lojistas": [
         "#loja123"
     ]
