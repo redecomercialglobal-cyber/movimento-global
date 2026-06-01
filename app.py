@@ -25,8 +25,8 @@ def aplicar_estilo():
         div.stButton > button:first-child:hover { background-color: #1D4ED8 !important; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2); }
         
         /* Botões de Exclusão / Perigo */
-        div.stButton > button[key^="btn_sair"], div.stButton > button[key^="rem_"], div.stButton > button[key^="del_"], div.stButton > button[key^="btn_reset"] { background-color: #EF4444 !important; color: white !important; }
-        div.stButton > button[key^="btn_sair"]:hover, div.stButton > button[key^="rem_"]:hover, div.stButton > button[key^="del_"]:hover, div.stButton > button[key^="btn_reset"]:hover { background-color: #DC2626 !important; }
+        div.stButton > button[key^="btn_sair"], div.stButton > button[key^="rem_"], div.stButton > button[key^="del_"], div.stButton > button[key^="btn_reset"], div.stButton > button[key^="btn_remover_capa"] { background-color: #EF4444 !important; color: white !important; }
+        div.stButton > button[key^="btn_sair"]:hover, div.stButton > button[key^="rem_"]:hover, div.stButton > button[key^="del_"]:hover, div.stButton > button[key^="btn_reset"]:hover, div.stButton > button[key^="btn_remover_capa"]:hover { background-color: #DC2626 !important; }
     </style>
     """
     st.markdown(css_style, unsafe_allow_html=True)
@@ -47,7 +47,6 @@ def carregar_dados_github():
         dados = json.loads(file_contents.decoded_content.decode("utf-8"))
         return dados, file_contents.sha
     except Exception:
-        # Estrutura inicial padrão caso o arquivo não exista ou falhe
         estrutura_inicial = {
             "categorias": {
                 "cat_1": {"nome": "Alimentação", "capa_b64": "", "lojas": ["#loja123"]}
@@ -80,15 +79,13 @@ if "tipo_usuario" not in st.session_state:
 if "usuario_atual" not in st.session_state:
     st.session_state.usuario_atual = None
 
-# Sistema de Navegação para o Gestor Administrador
 if "gestor_view" not in st.session_state:
-    st.session_state.gestor_view = "categorias"  # categorias | dentro_categoria | dentro_loja
+    st.session_state.gestor_view = "categorias"  
 if "categoria_selecionada" not in st.session_state:
     st.session_state.categoria_selecionada = None
 if "loja_selecionada" not in st.session_state:
     st.session_state.loja_selecionada = None
 
-# Auxiliares de máscaras
 if "login_raw" not in st.session_state:
     st.session_state.login_raw = ""
 if "cliente_cpf_raw" not in st.session_state:
@@ -96,7 +93,6 @@ if "cliente_cpf_raw" not in st.session_state:
 
 dados, sha = carregar_dados_github()
 
-# Garantia de integridade da árvore de dados
 if "categorias" not in dados:
     dados["categorias"] = {}
 if "clientes_por_loja" not in dados:
@@ -150,7 +146,6 @@ if not st.session_state.logado:
                 st.session_state.gestor_view = "categorias"
                 st.rerun()
             elif id_limpo.startswith("#"):
-                # Procura se a loja existe em alguma categoria
                 loja_encontrada = False
                 for cat_id, cat_info in dados["categorias"].items():
                     if id_limpo in cat_info.get("lojas", []):
@@ -176,7 +171,7 @@ if not st.session_state.logado:
             st.error("O campo de identificação não pode estar vazio.")
 
 # =========================================================
-# 2. TELA DO CLIENTE (BUSCA TOTALIZADA POR LOJA)
+# 2. TELA DO CLIENTE
 # =========================================================
 elif st.session_state.logado and st.session_state.tipo_usuario == "cliente":
     st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allow_html=True)
@@ -237,7 +232,7 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
             st.error("O valor precisa ser maior que R$ 0,00.")
         else:
             cpf_formatado = formatar_para_cpf(numeros_cpf)
-            pontos_novos = int(valor_venda * 10) # R$ 1,00 = 10 pontos
+            pontos_novos = int(valor_venda * 10)
             
             if loja_id not in dados["clientes_por_loja"]:
                 dados["clientes_por_loja"][loja_id] = {}
@@ -260,7 +255,7 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
 
 
 # =========================================================
-# 4. PAINEL ADMINISTRATIVO DO GESTOR GLOBAL (ARQUITETURA DE ABAS/PROCESSO)
+# 4. PAINEL ADMINISTRATIVO DO GESTOR GLOBAL
 # =========================================================
 elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
     
@@ -271,36 +266,44 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
         st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allow_html=True)
         st.markdown('<div class="main-subtitle">Painel de Gestão — Categorias</div>', unsafe_allow_html=True)
         
-        # Listagem Vertical Ordenada das Categorias Existentes
         for cat_id, cat_info in list(dados["categorias"].items()):
             st.markdown('<div class="card">', unsafe_allow_html=True)
             
-            # Exibição da Imagem da Capa (se houver Base64 salvo)
+            # 1. Renderização Segura da Imagem de Capa Atual
             if cat_info.get("capa_b64"):
                 try:
                     bytes_img = base64.b64decode(cat_info["capa_b64"])
                     st.image(bytes_img, use_container_width=True)
+                    
+                    # Botão explícito para remover a imagem atual do banco de dados
+                    if st.button("🗑️ Remover Capa Atual", key=f"btn_remover_capa_{cat_id}"):
+                        cat_info["capa_b64"] = ""
+                        salvar_dados_github(dados, sha)
+                        st.rerun()
                 except Exception:
-                    st.warning("Erro ao renderizar a imagem da capa.")
+                    st.warning("Erro ao carregar imagem de capa.")
             else:
                 st.info("Nenhuma imagem de capa cadastrada para esta categoria.")
             
-            # Input Grande para Carregar/Modificar Imagem
-            nova_img = st.file_uploader("Alterar imagem de capa", type=["png", "jpg", "jpeg"], key=f"upload_{cat_id}")
+            # 2. Upload Separado Dinâmico (Sem travar o X)
+            nova_img = st.file_uploader("Selecionar Nova Imagem de Capa", type=["png", "jpg", "jpeg"], key=f"upload_{cat_id}")
+            
             if nova_img is not None:
-                bytes_data = nova_img.read()
-                cat_info["capa_b64"] = base64.b64encode(bytes_data).decode("utf-8")
-                salvar_dados_github(dados, sha)
-                st.rerun()
+                st.image(nova_img, caption="💡 Pré-visualização do rascunho (Clique abaixo para salvar)", use_container_width=True)
+                if st.button("💾 Confirmar e Salvar Nova Capa", key=f"btn_salvar_img_{cat_id}"):
+                    bytes_data = nova_img.read()
+                    cat_info["capa_b64"] = base64.b64encode(bytes_data).decode("utf-8")
+                    salvar_dados_github(dados, sha)
+                    st.rerun()
                 
-            # Input para editar o Nome da Categoria
+            # 3. Input de Texto para Modificar Nome
             nome_editado = st.text_input("Nome da Categoria", value=cat_info["nome"], key=f"nome_{cat_id}")
-            if nome_editado != cat_info["nome"]:
-                cat_info["nome"] = nome_editado
+            if nome_editado != cat_info["nome"] and nome_editado.strip() != "":
+                cat_info["nome"] = nome_editado.strip()
                 salvar_dados_github(dados, sha)
                 st.rerun()
             
-            # Botões de controle do card
+            # 4. Ações do Card
             col_entrar, col_excluir = st.columns(2)
             if col_entrar.button(f"Entrar em {cat_info['nome']}", key=f"entrar_cat_{cat_id}"):
                 st.session_state.categoria_selecionada = cat_id
@@ -315,15 +318,18 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
             st.markdown('</div>', unsafe_allow_html=True)
             
         st.write("---")
-        # Formulário para criar uma Nova Categoria no final da lista
         st.subheader("Criar Nova Categoria")
         nova_cat_nome = st.text_input("Nome da Nova Categoria", placeholder="Ex: Vestuário, Farmácias...")
         if st.button("Adicionar Categoria"):
             if nova_cat_nome.strip():
-                novo_id = f"cat_{int(max([k.split('_')[1] for k in dados['categorias'].keys()] or [0])) + 1}"
+                # Gera ID sequencial robusto para a nova categoria
+                lista_ids = [int(k.split('_')[1]) for k in dados['categorias'].keys() if '_' in k]
+                proximo_id = max(lista_ids) + 1 if lista_ids else 1
+                novo_id = f"cat_{proximo_id}"
+                
                 dados["categorias"][novo_id] = {"nome": nova_cat_nome.strip(), "capa_b64": "", "lojas": []}
                 if salvar_dados_github(dados, sha):
-                    st.success("Categoria adicionada!")
+                    st.success("Categoria adicionada com sucesso!")
                     st.rerun()
             else:
                 st.error("Digite um nome válido.")
@@ -334,15 +340,15 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
             st.rerun()
 
     # -----------------------------------------------------
-    # VISTA B: DENTRO DE UMA CATEGORIA (LISTAGEM DE LOJAS EM CARDS)
+    # VISTA B: DENTRO DE UMA CATEGORIA
     # -----------------------------------------------------
     elif st.session_state.gestor_view == "dentro_categoria":
         cat_id = st.session_state.categoria_selecionada
         cat_nome = dados["categorias"][cat_id]["nome"]
         
         if st.button("⬅️ Voltar para Categorias"):
-            st.session_state.gestor_view = "categories"
             st.session_state.gestor_view = "categorias"
+            st.session_state.categoria_selecionada = None
             st.rerun()
             
         st.markdown(f'<div class="main-title">{cat_nome}</div>', unsafe_allow_html=True)
@@ -389,7 +395,7 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
                 st.error("O código deve começar obrigatoriamente com '#'.")
 
     # -----------------------------------------------------
-    # VISTA C: DETALHAMENTO ISOLADO DA LOJA SELECIONADA (TELA DO VÍDEO)
+    # VISTA C: DETALHAMENTO ISOLADO DA LOJA SELECIONADA
     # -----------------------------------------------------
     elif st.session_state.gestor_view == "dentro_loja":
         cat_id = st.session_state.categoria_selecionada
@@ -403,7 +409,6 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
         st.markdown(f'<div class="main-title">Loja {loja_id}</div>', unsafe_allow_html=True)
         st.markdown('<div class="main-subtitle">Métricas e Clientes Isolados</div>', unsafe_allow_html=True)
         
-        # Puxa os clientes exclusivos dessa loja específica
         clientes_da_loja = dados["clientes_por_loja"].get(loja_id, {})
         
         try:
@@ -434,7 +439,7 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
             if st.button("🚨 Zerar Banco de Dados desta Loja", type="primary", key="btn_reset_loja_completo"):
                 dados["clientes_por_loja"][loja_id] = {}
                 salvar_dados_github(dados, sha)
-                st.success("Dados da loja limpos!")
+                st.success("Dados da loja limpos com sucesso!")
                 st.rerun()
         else:
             st.info("Nenhum cliente comprou nesta loja até agora.")
