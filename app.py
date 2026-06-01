@@ -38,7 +38,6 @@ def carregar_dados_github():
         dados = json.loads(file_contents.decoded_content.decode("utf-8"))
         return dados, file_contents.sha
     except Exception:
-        # Estrutura inicial padrão caso o arquivo não exista ou esteja corrompido
         return {"lojistas": ["#loja123"], "clientes": {}}, None
 
 def salvar_dados_github(dados, sha):
@@ -72,7 +71,7 @@ if "lojistas" not in dados:
 if "clientes" not in dados:
     dados["clientes"] = {}
 
-# --- MÁSCARAS E VALIDAÇÕES INTELIGENTES ---
+# --- MÁSCARAS E VALIDAÇÕES INTELEGENTES ---
 def formatar_cpf(texto):
     apenas_numeros = "".join([c for c in texto if c.isdigit()])
     apenas_numeros = apenas_numeros[:11]
@@ -83,31 +82,23 @@ def formatar_cpf(texto):
     elif len(apenas_numeros) <= 6: 
         return f"{apenas_numeros[:3]}.{apenas_numeros[3:]}"
     elif len(apenas_numeros) <= 9: 
-        return f"{st.session_state.usuario_atual_bruto[:3]}.{apenas_numeros[3:6]}.{apenas_numeros[6:]}"
+        return f"{apenas_numeros[:3]}.{apenas_numeros[3:6]}.{apenas_numeros[6:]}"
     else: 
         return f"{apenas_numeros[:3]}.{apenas_numeros[3:6]}.{apenas_numeros[6:9]}-{apenas_numeros[9:]}"
 
 # --- TELA DE LOGIN / IDENTIFICAÇÃO ---
 if not st.session_state.logado:
-    st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allowed_html=True)
-    st.markdown('<div class="main-subtitle">Um movimento que une lojas e clientes</div>', unsafe_allowed_html=True)
+    st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-subtitle">Um movimento que une lojas e clientes</div>', unsafe_allow_html=True)
     
-    # Captura inicial sem placeholder ou dicas comprometedoras
     id_cru = st.text_input("Identificação (CPF)", key="input_login_usuario")
     id_limpo = id_cru.strip()
     
-    # Validação dinâmica do comportamento do campo com base no 1º caractere
     if id_limpo:
         primeiro_char = id_limpo[0]
-        
-        if primeiro_char == "@":
-            # Modo Gestor: Desativa máscara, aceita entrada alfanumérica pura
-            id_processado = id_limpo
-        elif primeiro_char == "#":
-            # Modo Lojista: Desativa máscara, aceita entrada alfanumérica pura
+        if primeiro_char == "@" or primeiro_char == "#":
             id_processado = id_limpo
         else:
-            # Modo Cliente (Padrão): Filtra apenas números e aplica máscara de CPF
             apenas_numeros = "".join([c for c in id_limpo if c.isdigit()])
             id_processado = formatar_cpf(apenas_numeros)
     else:
@@ -115,7 +106,7 @@ if not st.session_state.logado:
 
     if st.button("Entrar", key="btn_entrar_login"):
         if id_limpo:
-            # 1. Validação Exata e Exclusiva do Gestor Global
+            # 1. Validação do Gestor Global
             if id_limpo.startswith("@"):
                 if id_limpo == "@Romanos0828":
                     st.session_state.logado = True
@@ -125,7 +116,7 @@ if not st.session_state.logado:
                 else:
                     st.error("Acesso negado.")
             
-            # 2. Validação Exclusiva dos Lojistas Cadastrados
+            # 2. Validação dos Lojistas Cadastrados
             elif id_limpo.startswith("#"):
                 if id_limpo in dados["lojistas"]:
                     st.session_state.logado = True
@@ -151,8 +142,8 @@ if not st.session_state.logado:
 
 # --- TELA DO CLIENTE ---
 elif st.session_state.logado and st.session_state.tipo_usuario == "cliente":
-    st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allowed_html=True)
-    st.markdown('<div class="main-subtitle">Sua Loja Parceira</div>', unsafe_allowed_html=True)
+    st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-subtitle">Sua Loja Parceira</div>', unsafe_allow_html=True)
     
     cliente_cpf = st.session_state.usuario_atual
     pontos = dados.get("clientes", {}).get(cliente_cpf, 0)
@@ -173,11 +164,10 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "cliente":
 
 # --- TELA OPERACIONAL DO LOJISTA ---
 elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
-    st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allowed_html=True)
-    st.markdown('<div class="main-subtitle">Painel Operacional do Lojista</div>', unsafe_allowed_html=True)
+    st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-subtitle">Painel Operacional do Lojista</div>', unsafe_allow_html=True)
     st.subheader("Registrar Vendas no Movimento GLOBAL")
     
-    # Interface estritamente operacional conforme Regra 11
     valor_venda = st.number_input("Valor da Venda (R$)", min_value=0.0, max_value=100000.0, value=0.0, step=0.50, format="%.2f")
     cpf_cliente_input = st.text_input("CPF do Cliente", placeholder="000.000.000-00", max_chars=14)
     
@@ -210,10 +200,9 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
 
 # --- PAINEL ADMINISTRATIVO DO GESTOR GLOBAL ---
 elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
-    st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allowed_html=True)
-    st.markdown('<div class="main-subtitle">Painel de Gestão e Administração Global</div>', unsafe_allowed_html=True)
+    st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-subtitle">Painel de Gestão e Administração Global</div>', unsafe_allow_html=True)
     
-    # 1. Métricas de Controle Global
     st.subheader("Métricas de Controle Administrativo")
     todos_clientes = dados.get("clientes", {})
     
@@ -229,8 +218,6 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
     col2.metric("Equivalência Financeira Estimada", f"R$ {equivalenca_dinheiro:,.2f}")
     
     st.write("---")
-    
-    # 2. Gerenciamento Completo de Lojistas
     st.subheader("Gerenciar Lojistas Autoritários")
     
     novo_lojista_code = st.text_input("Cadastrar Código de Novo Lojista (Deve iniciar com #)", placeholder="#exemplo123")
@@ -257,8 +244,6 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
             st.rerun()
 
     st.write("---")
-    
-    # 3. Listagem Geral de Clientes e Opções de Exclusão
     st.subheader("Lista Geral de Clientes Cadastrados")
     if todos_clientes:
         for idx, (cli, pts) in enumerate(list(todos_clientes.items())):
