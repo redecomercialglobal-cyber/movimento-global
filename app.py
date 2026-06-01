@@ -62,7 +62,6 @@ if "tipo_usuario" not in st.session_state:
 if "usuario_atual" not in st.session_state:
     st.session_state.usuario_atual = None
 
-# Estados para controlar o texto limpo digitado sob a máscara
 if "login_raw" not in st.session_state:
     st.session_state.login_raw = ""
 if "cliente_cpf_raw" not in st.session_state:
@@ -78,7 +77,6 @@ if "clientes" not in dados:
     dados["clientes"] = {}
 
 def formatar_para_cpf(texto):
-    """Aplica rigidamente a máscara de CPF (000.000.000-00) removendo qualquer letra."""
     apenas_numeros = "".join([c for c in texto if c.isdigit()])[:11]
     if len(apenas_numeros) <= 3:
         return apenas_numeros
@@ -90,7 +88,6 @@ def formatar_para_cpf(texto):
         return f"{apenas_numeros[:3]}.{apenas_numeros[3:6]}.{apenas_numeros[6:9]}-{apenas_numeros[9:]}"
 
 def formatar_para_moeda(texto):
-    """Formata strings numéricas para o padrão R$ 0.000,00 com divisão milenar."""
     apenas_numeros = "".join([c for c in texto if c.isdigit()])
     if not apenas_numeros:
         return "0,00"
@@ -103,7 +100,6 @@ def callback_login_input():
     if val.startswith("@") or val.startswith("#"):
         st.session_state.login_raw = val
     else:
-        # Modo CPF padrão: bloqueia letras e gera máscara progressiva
         st.session_state.login_raw = formatar_para_cpf(val)
     st.session_state.txt_login = st.session_state.login_raw
 
@@ -130,7 +126,6 @@ if not st.session_state.logado:
 
     if st.button("Entrar", key="btn_entrar_login"):
         if id_limpo:
-            # 1. Validação do Gestor Global
             if id_limpo.startswith("@"):
                 if id_limpo == "@Romanos0828":
                     st.session_state.logado = True
@@ -140,7 +135,6 @@ if not st.session_state.logado:
                 else:
                     st.error("Acesso negado.")
             
-            # 2. Validação dos Lojistas Cadastrados
             elif id_limpo.startswith("#"):
                 if id_limpo in dados["lojistas"]:
                     st.session_state.logado = True
@@ -150,7 +144,6 @@ if not st.session_state.logado:
                 else:
                     st.error("Acesso negado.")
             
-            # 3. Validação do Cliente (CPF completo)
             else:
                 numeros_cpf = "".join([c for c in id_limpo if c.isdigit()])
                 if len(numeros_cpf) == 11:
@@ -186,7 +179,7 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "cliente":
         st.session_state.usuario_atual = None
         st.rerun()
 
-# --- TELA OPERACIONAL DO LOJISTA ---
+# --- TELA OPERACIONAL DO LOJISTA (CÁLCULO DE 1 REAL = 10 PONTOS) ---
 elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
     st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allow_html=True)
     st.markdown('<div class="main-subtitle">Painel Operacional do Lojista</div>', unsafe_allow_html=True)
@@ -210,7 +203,9 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
             st.error("O valor da venda precisa ser maior que R$ 0,00.")
         else:
             cpf_formatado = formatar_para_cpf(numeros_cpf)
-            pontos_novos = int(valor_venda)
+            
+            # CRITÉRIO DE CONVERSÃO RESTRITO: R$ 1,00 = 10 Pontos
+            pontos_novos = int(valor_venda * 10)
             
             if cpf_formatado in dados["clientes"]:
                 dados["clientes"][cpf_formatado] += pontos_novos
@@ -238,14 +233,15 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
     
     try:
         total_pontos_sistema = sum(int(v) for v in todos_clientes.values())
-        equivalenca_dinheiro = total_pontos_sistema * 0.10
+        # Se 10 pontos vêm de 1 real, a equivalência real em dinheiro é o total dividido por 10
+        equivalenca_dinheiro = total_pontos_sistema / 10
     except Exception:
         total_pontos_sistema = 0
         equivalenca_dinheiro = 0.0
 
     col1, col2 = st.columns(2)
     col1.metric("Total de Pontos Emitidos (Global)", f"{total_pontos_sistema} pts")
-    col2.metric("Equivalência Financeira Estimada", f"R$ {equivalenca_dinheiro:,.2f}")
+    col2.metric("Movimentação Financeira Equivalente", f"R$ {equivalenca_dinheiro:,.2f}")
     
     st.write("---")
     st.subheader("Gerenciar Lojistas Autoritários")
