@@ -7,57 +7,22 @@ import os
 st.set_page_config(page_title="GLOBAL", page_icon="🌐", layout="centered")
 
 # --- ESTILIZAÇÃO CUSTOMIZADA (CSS) ---
-css_style = """
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght=400;600;700&display=swap');
-    
-    * {
-        font-family: 'Inter', sans-serif;
-    }
-    
-    /* Estilo dos Títulos */
-    .main-title {
-        font-size: 42px;
-        font-weight: 700;
-        color: #1E3A8A;
-        margin-bottom: 5px;
-        text-align: left;
-    }
-    .main-subtitle {
-        font-size: 16px;
-        color: #6B7280;
-        margin-bottom: 35px;
-        text-align: left;
-    }
-    
-    /* Botão Primário (Entrar / Enviar Pontos) */
-    div.stButton > button:first-child {
-        background-color: #2563EB !important;
-        color: white !important;
-        font-size: 16px !important;
-        font-weight: 600 !important;
-        padding: 12px 24px !important;
-        border-radius: 8px !important;
-        border: none !important;
-        width: 100% !important;
-        transition: all 0.2s ease;
-    }
-    div.stButton > button:first-child:hover {
-        background-color: #1D4ED8 !important;
-        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
-    }
-    
-    /* Botão Secundário (Sair) */
-    div.stButton > button[key="btn_sair"] {
-        background-color: #EF4444 !important;
-        color: white !important;
-    }
-    div.stButton > button[key="btn_sair"]:hover {
-        background-color: #DC2626 !important;
-    }
-</style>
-"""
-st.markdown(css_style, unsafe_allowed_html=True)
+def aplicar_estilo():
+    css_style = """
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght=400;600;700&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        .main-title { font-size: 42px; font-weight: 700; color: #1E3A8A; margin-bottom: 5px; text-align: left; }
+        .main-subtitle { font-size: 16px; color: #6B7280; margin-bottom: 35px; text-align: left; }
+        div.stButton > button:first-child { background-color: #2563EB !important; color: white !important; font-size: 16px !important; font-weight: 600 !important; padding: 12px 24px !important; border-radius: 8px !important; border: none !important; width: 100% !important; transition: all 0.2s ease; }
+        div.stButton > button:first-child:hover { background-color: #1D4ED8 !important; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2); }
+        div.stButton > button[key="btn_sair"] { background-color: #EF4444 !important; color: white !important; }
+        div.stButton > button[key="btn_sair"]:hover { background-color: #DC2626 !important; }
+    </style>
+    """
+    st.markdown(css_style, unsafe_allowed_html=True)
+
+aplicar_estilo()
 
 # --- CONFIGURAÇÕES DE ACESSO AO GITHUB ---
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
@@ -98,27 +63,24 @@ if "usuario_atual" not in st.session_state:
     st.session_state.usuario_atual = None
 
 dados, sha = carregar_dados_github()
+if not isinstance(dados, dict):
+    dados = {"config": {"codigo_lojista": "#loja123"}, "clientes": {}}
+
 CODIGO_LOJISTA = dados.get("config", {}).get("codigo_lojista", "#loja123")
 
 # --- MÁSCARAS E VALIDAÇÕES INTELIGENTES ---
 def formatar_telefone(texto):
     apenas_numeros = "".join([c for c in texto if c.isdigit()])
     apenas_numeros = apenas_numeros[:11]
-    
-    if len(apenas_numeros) == 0:
-        return ""
-    elif len(apenas_numeros) <= 2:
-        return f"({apenas_numeros}"
-    elif len(apenas_numeros) <= 7:
-        return f"({apenas_numeros[:2]}) {apenas_numeros[2:]}"
-    else:
-        return f"({apenas_numeros[:2]}) {apenas_numeros[2:7]}-{apenas_numeros[7:]}"
+    if len(apenas_numeros) == 0: return ""
+    elif len(apenas_numeros) <= 2: return f"({apenas_numeros}"
+    elif len(apenas_numeros) <= 7: return f"({apenas_numeros[:2]}) {apenas_numeros[2:]}"
+    else: return f"({apenas_numeros[:2]}) {apenas_numeros[2:7]}-{apenas_numeros[7:]}"
 
 # --- TELA DE LOGIN / IDENTIFICAÇÃO ---
 if not st.session_state.logado:
     st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allowed_html=True)
     st.markdown('<div class="main-subtitle">Um movimento que une lojas e clientes</div>', unsafe_allowed_html=True)
-    
     id_input = st.text_input("Identificação (Telefone ou Código)", placeholder="(00) 00000-0000", max_chars=15)
     id_limpo = id_input.strip()
     
@@ -143,12 +105,10 @@ if not st.session_state.logado:
 elif st.session_state.logado and st.session_state.tipo_usuario == "cliente":
     st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allowed_html=True)
     st.markdown('<div class="main-subtitle">Sua Loja Parceira</div>', unsafe_allowed_html=True)
-    
     cliente = st.session_state.usuario_atual
     pontos = dados.get("clientes", {}).get(cliente, 0)
     
     st.markdown(f"Olá! Seu saldo atual de pontos registrado sob o telefone **{cliente}** é:")
-    
     st.markdown(f"""
         <div style="background-color: #EFF6FF; border: 2px solid #BFDBFE; border-radius: 12px; padding: 25px; text-align: center; margin: 20px 0;">
             <span style="font-size: 48px; font-weight: 700; color: #1E40AF;">{pontos}</span>
@@ -166,7 +126,6 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "cliente":
 elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
     st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allowed_html=True)
     st.markdown('<div class="main-subtitle">Painel do Lojista</div>', unsafe_allowed_html=True)
-    
     st.subheader("Registrar Vendas no Movimento GLOBAL")
     
     valor_venda = st.number_input("Valor da Venda (R$)", min_value=0.0, max_value=100000.0, value=0.0, step=0.50, format="%.2f")
@@ -180,24 +139,17 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
             st.error("O valor da venda precisa ser maior que R$ 0,00.")
         else:
             pontos_novos = int(valor_venda)
-            
-            if "clientes" not in dados:
-                dados["clientes"] = {}
-                
-            if tel_cliente in dados["clientes"]:
-                dados["clientes"][tel_cliente] += pontos_novos
-            else:
-                dados["clientes"][tel_cliente] = pontos_novos
+            if "clientes" not in dados: dados["clientes"] = {}
+            if tel_cliente in dados["clientes"]: dados["clientes"][tel_cliente] += pontos_novos
+            else: dados["clientes"][tel_cliente] = pontos_novos
                 
             if salvar_dados_github(dados, sha):
                 st.success(f"Sucesso! {pontos_novos} pontos adicionados para {tel_cliente}.")
                 st.rerun()
 
     st.write("---")
-    
     with st.expander("⚙️ Painel de Gestão e Configurações"):
         st.subheader("Métricas de Crescimento Real")
-        
         todos_clientes = dados.get("clientes", {})
         
         try:
@@ -213,9 +165,7 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
         
         st.write("---")
         st.subheader("Lista de Clientes Cadastrados")
-        
         if todos_clientes:
-            # Uso de enumerate para gerar índices limpos e numéricos, evitando quebra nas keys
             for idx, (cli, pts) in enumerate(list(todos_clientes.items())):
                 col_c, col_p, col_a = st.columns([2, 1, 1])
                 col_c.write(f"📱 {cli}")
@@ -232,8 +182,7 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
         novo_codigo = st.text_input("Novo Código", value=CODIGO_LOJISTA, key="input_novo_codigo_lojista")
         if st.button("Salvar Novo Código", key="btn_salvar_codigo_lojista"):
             if novo_codigo.strip():
-                if "config" not in dados:
-                    dados["config"] = {}
+                if "config" not in dados: dados["config"] = {}
                 dados["config"]["codigo_lojista"] = novo_codigo.strip()
                 salvar_dados_github(dados, sha)
                 st.success("Código de acesso atualizado!")
@@ -245,7 +194,7 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
             st.success("Banco de dados resetado!")
             st.rerun()
 
-    if st.button("Sair", key="btn_sair"):
+    if st.button("Sair", key="btn_sair_painel"):
         st.session_state.logado = False
         st.session_state.tipo_usuario = None
         st.rerun()
