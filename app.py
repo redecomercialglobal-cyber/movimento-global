@@ -94,7 +94,7 @@ def formatar_para_moeda(texto):
     valor_float = float(apenas_numeros) / 100
     return f"{valor_float:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-# --- CALLBACKS DE TRATAMENTO EM TEMPO REAL ---
+# --- CALLBACKS ---
 def callback_login_input():
     val = st.session_state.txt_login
     if val.startswith("@") or val.startswith("#"):
@@ -179,7 +179,7 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "cliente":
         st.session_state.usuario_atual = None
         st.rerun()
 
-# --- TELA OPERACIONAL DO LOJISTA (CÁLCULO DE 1 REAL = 10 PONTOS) ---
+# --- TELA OPERACIONAL DO LOJISTA ---
 elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
     st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allow_html=True)
     st.markdown('<div class="main-subtitle">Painel Operacional do Lojista</div>', unsafe_allow_html=True)
@@ -203,8 +203,6 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
             st.error("O valor da venda precisa ser maior que R$ 0,00.")
         else:
             cpf_formatado = formatar_para_cpf(numeros_cpf)
-            
-            # CRITÉRIO DE CONVERSÃO RESTRITO: R$ 1,00 = 10 Pontos
             pontos_novos = int(valor_venda * 10)
             
             if cpf_formatado in dados["clientes"]:
@@ -233,7 +231,6 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
     
     try:
         total_pontos_sistema = sum(int(v) for v in todos_clientes.values())
-        # Se 10 pontos vêm de 1 real, a equivalência real em dinheiro é o total dividido por 10
         equivalenca_dinheiro = total_pontos_sistema / 10
     except Exception:
         total_pontos_sistema = 0
@@ -244,27 +241,35 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
     col2.metric("Movimentação Financeira Equivalente", f"R$ {equivalenca_dinheiro:,.2f}")
     
     st.write("---")
-    st.subheader("Gerenciar Lojistas Autoritários")
     
-    novo_lojista_code = st.text_input("Cadastrar Código de Novo Lojista (Deve iniciar com #)", placeholder="#exemplo123")
-    if st.button("Criar Novo Lojista"):
-        codigo_limpo = novo_lojista_code.strip()
-        if codigo_limpo.startswith("#") and len(codigo_limpo) > 1:
-            if codigo_limpo not in dados["lojistas"]:
-                dados["lojistas"].append(codigo_limpo)
+    # SEÇÃO ATUALIZADA: APENAS EDIÇÃO E REMOÇÃO DE LOJISTAS EXISTENTES
+    st.subheader("Gerenciar Lojistas Cadastrados")
+    st.write("Modifique o código diretamente no campo e clique em **Salvar Alteração** para atualizar.")
+
+    for idx_loj, loj in enumerate(dados["lojistas"]):
+        # Cria colunas para organizar o input de edição, o botão de salvar e o botão de remover
+        col_input, col_salvar, col_remover = st.columns([2, 1, 1])
+        
+        # Campo de texto pré-preenchido com o código atual do lojista
+        codigo_editado = col_input.text_input(
+            f"Código do Lojista {idx_loj + 1}", 
+            value=loj, 
+            key=f"edit_loj_{idx_loj}"
+        ).strip()
+        
+        # Botão para salvar a alteração efetuada
+        if col_salvar.button("Salvar Alteração", key=f"btn_salvar_{idx_loj}"):
+            if codigo_editado.startswith("#") and len(codigo_editado) > 1:
+                # Substitui o código antigo pelo novo na lista de lojistas
+                dados["lojistas"][idx_loj] = codigo_editado
                 if salvar_dados_github(dados, sha):
-                    st.success(f"Lojista {codigo_limpo} cadastrado com sucesso!")
+                    st.success(f"Código atualizado para {codigo_editado}!")
                     st.rerun()
             else:
-                st.warning("Este código de lojista já está cadastrado.")
-        else:
-            st.error("O código de lojista obrigatoriamente deve começar com '#' seguido do identificador.")
-
-    st.write("**Lojistas Ativos no Sistema:**")
-    for idx_loj, loj in enumerate(dados["lojistas"]):
-        col_l_nome, col_l_btn = st.columns([3, 1])
-        col_l_nome.write(f"🏢 Código: `{loj}`")
-        if col_l_btn.button("Remover Lojista", key=f"rem_loj_{idx_loj}"):
+                st.error("O código editado precisa começar com '#'.")
+                
+        # Botão tradicional para remover o lojista do sistema
+        if col_remover.button("Remover Lojista", key=f"rem_loj_{idx_loj}"):
             dados["lojistas"].remove(loj)
             salvar_dados_github(dados, sha)
             st.rerun()
