@@ -1,8 +1,6 @@
 {
-    "merchantCode": "#loja123",
-    "clients": {
-        "(11) 99999-9999": 250,
-        "(11) 98888-8888": 100,
-        "(95) 98100-5440": 1000
-    }
+    "config": {
+        "codigo_lojista": "#loja123"
+    },
+    "clientes": {}
 }
