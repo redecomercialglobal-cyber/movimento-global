@@ -8,6 +8,12 @@
     "lojistas": [
         "#loja123"
     ],
-    "categorias": {},
+    "categorias": {
+        "cat_1": {
+            "nome": "PET SHOP",
+            "capa_b64": "",
+            "lojas": []
+        }
+    },
     "clientes_por_loja": {}
 }
