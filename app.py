@@ -20,7 +20,7 @@ def aplicar_estilo():
         div.stButton > button[key="btn_sair"]:hover { background-color: #DC2626 !important; }
     </style>
     """
-    st.markdown(css_style, unsafe_allowed_html=True)
+    st.markdown(css_style, unsafe_allow_html=True)
 
 aplicar_estilo()
 
@@ -79,8 +79,8 @@ def formatar_telefone(texto):
 
 # --- TELA DE LOGIN / IDENTIFICAÇÃO ---
 if not st.session_state.logado:
-    st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allowed_html=True)
-    st.markdown('<div class="main-subtitle">Um movimento que une lojas e clientes</div>', unsafe_allowed_html=True)
+    st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-subtitle">Um movimento que une lojas e clientes</div>', unsafe_allow_html=True)
     id_input = st.text_input("Identificação (Telefone ou Código)", placeholder="(00) 00000-0000", max_chars=15)
     id_limpo = id_input.strip()
     
@@ -103,8 +103,8 @@ if not st.session_state.logado:
 
 # --- TELA DO CLIENTE ---
 elif st.session_state.logado and st.session_state.tipo_usuario == "cliente":
-    st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allowed_html=True)
-    st.markdown('<div class="main-subtitle">Sua Loja Parceira</div>', unsafe_allowed_html=True)
+    st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-subtitle">Sua Loja Parceira</div>', unsafe_allow_html=True)
     cliente = st.session_state.usuario_atual
     pontos = dados.get("clientes", {}).get(cliente, 0)
     
@@ -114,7 +114,7 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "cliente":
             <span style="font-size: 48px; font-weight: 700; color: #1E40AF;">{pontos}</span>
             <p style="margin: 0; color: #1E40AF; font-weight: 600;">pontos acumulados</p>
         </div>
-    """, unsafe_allowed_html=True)
+    """, unsafe_allow_html=True)
     
     if st.button("Sair", key="btn_sair"):
         st.session_state.logado = False
@@ -124,8 +124,8 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "cliente":
 
 # --- PAINEL DO LOJISTA ---
 elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
-    st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allowed_html=True)
-    st.markdown('<div class="main-subtitle">Painel do Lojista</div>', unsafe_allowed_html=True)
+    st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-subtitle">Painel do Lojista</div>', unsafe_allow_html=True)
     st.subheader("Registrar Vendas no Movimento GLOBAL")
     
     valor_venda = st.number_input("Valor da Venda (R$)", min_value=0.0, max_value=100000.0, value=0.0, step=0.50, format="%.2f")
