@@ -6,7 +6,7 @@ import os
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="GLOBAL", page_icon="🌐", layout="centered")
 
-# --- ESTILIZAÇÃO CUSTOMIZADA E MÁSCARAS EM TEMPO REAL (JS/CSS) ---
+# --- ESTILIZAÇÃO CUSTOMIZADA (CSS) ---
 def aplicar_estilo():
     css_style = """
     <style>
@@ -19,63 +19,6 @@ def aplicar_estilo():
         div.stButton > button[key="btn_sair"], div.stButton > button[key="btn_sair_painel"], div.stButton > button[key="btn_sair_gestor"] { background-color: #EF4444 !important; color: white !important; }
         div.stButton > button[key="btn_sair"]:hover, div.stButton > button[key="btn_sair_painel"]:hover, div.stButton > button[key="btn_sair_gestor"]:hover { background-color: #DC2626 !important; }
     </style>
-    
-    <script>
-    // Injeção de comportamento de máscara em tempo real nos inputs do Streamlit
-    const MutationObserver = window.MutationObserver || window.WebKitMutationObserver;
-    const observer = new MutationObserver(function(mutations, instance) {
-        // 1. Máscara de CPF no Login e no campo do Cliente
-        const cpfInputs = document.querySelectorAll('input[aria-label="Identificação (CPF)"], input[aria-label="CPF do Cliente"]');
-        cpfInputs.forEach(input => {
-            if (!input.dataset.maskApplied) {
-                input.addEventListener('input', function(e) {
-                    let value = e.target.value;
-                    // Se começar com @ ou #, permite tudo (Passo dos códigos especiais)
-                    if (value.startsWith('@') || value.startsWith('#')) {
-                        return;
-                    }
-                    // Caso contrário, limpa tudo que não for número
-                    value = value.replace(/\D/g, "");
-                    // Aplica a máscara de CPF dinamicamente
-                    if (value.length > 9) {
-                        value = value.replace(/^(\d{3})(\d{3})(\d{3})(\d{1,2})$/, "$1.$2.$3-$4");
-                    } else if (value.length > 6) {
-                        value = value.replace(/^(\d{3})(\d{3})(\d{1,3})$/, "$1.$2.$3");
-                    } else if (value.length > 3) {
-                        value = value.replace(/^(\d{3})(\d{1,3})$/, "$1.$2");
-                    }
-                    e.target.value = value;
-                    // Dispara o evento para o Streamlit capturar a mudança interna
-                    input.dispatchEvent(new Event('change', { bubbles: true }));
-                });
-                input.dataset.maskApplied = true;
-            }
-        });
-
-        // 2. Máscara Monetária com divisão milenar no Valor da Venda
-        const moneyInputs = document.querySelectorAll('input[aria-label="Valor da Venda (R$)"]');
-        moneyInputs.forEach(input => {
-            if (!input.dataset.maskApplied) {
-                input.addEventListener('input', function(e) {
-                    let value = e.target.value.replace(/\D/g, "");
-                    if (value === "") value = "0";
-                    // Transforma em valor numérico centesimal
-                    const options = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
-                    const result = (parseFloat(value) / 100).toLocaleString('pt-BR', options);
-                    e.target.value = result;
-                    input.dispatchEvent(new Event('change', { bubbles: true }));
-                });
-                input.dataset.maskApplied = true;
-            }
-        });
-    });
-
-    // Vincula o observador ao documento
-    observer.observe(document, {
-        childList: true,
-        subtree: true
-    });
-    </script>
     """
     st.markdown(css_style, unsafe_allow_html=True)
 
@@ -111,13 +54,19 @@ def salvar_dados_github(dados, sha):
         st.error(f"Erro ao salvar dados: {e}")
         return False
 
-# --- CONTROLE DE SESSÃO DO USUÁRIO ---
+# --- CONTROLE DE SESSÃO E MÁSCARAS ---
 if "logado" not in st.session_state:
     st.session_state.logado = False
 if "tipo_usuario" not in st.session_state:
     st.session_state.tipo_usuario = None
 if "usuario_atual" not in st.session_state:
     st.session_state.usuario_atual = None
+
+# Estados para controlar o texto limpo digitado sob a máscara
+if "login_raw" not in st.session_state:
+    st.session_state.login_raw = ""
+if "cliente_cpf_raw" not in st.session_state:
+    st.session_state.cliente_cpf_raw = ""
 
 dados, sha = carregar_dados_github()
 if not isinstance(dados, dict):
@@ -128,20 +77,56 @@ if "lojistas" not in dados:
 if "clientes" not in dados:
     dados["clientes"] = {}
 
-# --- FUNÇÃO AUXILIAR DE LIMPEZA/FORMATAÇÃO DO LADO DO SERVIDOR ---
-def limpar_e_formatar_cpf(texto):
-    numeros = "".join([c for c in texto if c.isdigit()])
-    if len(numeros) == 11:
-        return f"{numeros[:3]}.{numeros[3:6]}.{numeros[6:9]}-{numeros[9:]}"
-    return None
+def formatar_para_cpf(texto):
+    """Aplica rigidamente a máscara de CPF (000.000.000-00) removendo qualquer letra."""
+    apenas_numeros = "".join([c for c in texto if c.isdigit()])[:11]
+    if len(apenas_numeros) <= 3:
+        return apenas_numeros
+    elif len(apenas_numeros) <= 6:
+        return f"{apenas_numeros[:3]}.{apenas_numeros[3:]}"
+    elif len(apenas_numeros) <= 9:
+        return f"{apenas_numeros[:3]}.{apenas_numeros[3:6]}.{apenas_numeros[6:]}"
+    else:
+        return f"{apenas_numeros[:3]}.{apenas_numeros[3:6]}.{apenas_numeros[6:9]}-{apenas_numeros[9:]}"
+
+def formatar_para_moeda(texto):
+    """Formata strings numéricas para o padrão R$ 0.000,00 com divisão milenar."""
+    apenas_numeros = "".join([c for c in texto if c.isdigit()])
+    if not apenas_numeros:
+        return "0,00"
+    valor_float = float(apenas_numeros) / 100
+    return f"{valor_float:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+# --- CALLBACKS DE TRATAMENTO EM TEMPO REAL ---
+def callback_login_input():
+    val = st.session_state.txt_login
+    if val.startswith("@") or val.startswith("#"):
+        st.session_state.login_raw = val
+    else:
+        # Modo CPF padrão: bloqueia letras e gera máscara progressiva
+        st.session_state.login_raw = formatar_para_cpf(val)
+    st.session_state.txt_login = st.session_state.login_raw
+
+def callback_venda_input():
+    val = st.session_state.txt_venda
+    st.session_state.txt_venda = formatar_para_moeda(val)
+
+def callback_cliente_cpf_input():
+    val = st.session_state.txt_cliente_cpf
+    st.session_state.cliente_cpf_raw = formatar_para_cpf(val)
+    st.session_state.txt_cliente_cpf = st.session_state.cliente_cpf_raw
+
 
 # --- TELA DE LOGIN / IDENTIFICAÇÃO ---
 if not st.session_state.logado:
     st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allow_html=True)
     st.markdown('<div class="main-subtitle">Um movimento que une lojas e clientes</div>', unsafe_allow_html=True)
     
-    id_cru = st.text_input("Identificação (CPF)", key="input_login_usuario")
-    id_limpo = id_cru.strip()
+    id_limpo = st.text_input(
+        "Identificação (CPF)", 
+        key="txt_login", 
+        on_change=callback_login_input
+    ).strip()
 
     if st.button("Entrar", key="btn_entrar_login"):
         if id_limpo:
@@ -165,13 +150,14 @@ if not st.session_state.logado:
                 else:
                     st.error("Acesso negado.")
             
-            # 3. Validação do Cliente (CPF)
+            # 3. Validação do Cliente (CPF completo)
             else:
-                cpf_validado = limpar_e_formatar_cpf(id_limpo)
-                if cpf_validado:
+                numeros_cpf = "".join([c for c in id_limpo if c.isdigit()])
+                if len(numeros_cpf) == 11:
+                    cpf_formatado = formatar_para_cpf(numeros_cpf)
                     st.session_state.logado = True
                     st.session_state.tipo_usuario = "cliente"
-                    st.session_state.usuario_atual = cpf_validado
+                    st.session_state.usuario_atual = cpf_formatado
                     st.rerun()
                 else:
                     st.error("Por favor, digite um CPF válido com 11 dígitos.")
@@ -206,25 +192,24 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
     st.markdown('<div class="main-subtitle">Painel Operacional do Lojista</div>', unsafe_allow_html=True)
     st.subheader("Registrar Vendas no Movimento GLOBAL")
     
-    # Campo tratado textualmente para suportar a máscara dinâmica em tempo real via JS
-    valor_venda_raw = st.text_input("Valor da Venda (R$)", value="0,00")
-    cpf_cliente_input = st.text_input("CPF do Cliente", max_chars=14)
+    valor_venda_raw = st.text_input("Valor da Venda (R$)", value="0,00", key="txt_venda", on_change=callback_venda_input)
+    cpf_cliente_input = st.text_input("CPF do Cliente", key="txt_cliente_cpf", on_change=callback_cliente_cpf_input)
     
     if st.button("Enviar Pontuação", key="btn_enviar_pontos_lojista"):
-        # Converte o valor formatado "1.250,50" para float puro 1250.50
         try:
             limpo_valor = valor_venda_raw.replace(".", "").replace(",", ".")
             valor_venda = float(limpo_valor)
         except ValueError:
             valor_venda = 0.0
 
-        cpf_formatado = limpar_e_formatar_cpf(cpf_cliente_input)
+        numeros_cpf = "".join([c for c in cpf_cliente_input if c.isdigit()])
         
-        if not cpf_formatado:
+        if len(numeros_cpf) < 11:
             st.error("Insira um CPF válido com 11 dígitos para computar os pontos.")
         elif valor_venda <= 0:
             st.error("O valor da venda precisa ser maior que R$ 0,00.")
         else:
+            cpf_formatado = formatar_para_cpf(numeros_cpf)
             pontos_novos = int(valor_venda)
             
             if cpf_formatado in dados["clientes"]:
