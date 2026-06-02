@@ -85,45 +85,21 @@ def salvar_dados_github(dados, sha):
         st.error(f"Erro ao salvar dados: {e}")
         return False
 
-# --- CONTROLE DE SESSÃO E ROTEAMENTO ---
-if "logado" not in st.session_state:
-    st.session_state.logado = False
-if "tipo_usuario" not in st.session_state:
-    st.session_state.tipo_usuario = None
-if "usuario_atual" not in st.session_state:
-    st.session_state.usuario_atual = None
-
-if "gestor_view" not in st.session_state:
-    st.session_state.gestor_view = "categorias"  
-if "categoria_selecionada" not in st.session_state:
-    st.session_state.categoria_selecionada = None
-if "loja_selecionada" not in st.session_state:
-    st.session_state.loja_selecionada = None
-
-if "login_raw" not in st.session_state:
-    st.session_state.login_raw = ""
-if "cliente_cpf_raw" not in st.session_state:
-    st.session_state.cliente_cpf_raw = ""
-
-if "imagens_temp_cache" not in st.session_state:
-    st.session_state.imagens_temp_cache = {}
-if "contrato_temp_cache" not in st.session_state:
-    st.session_state.contrato_temp_cache = None
-
-# Estados de confirmação para deleção
-if "deletar_cliente_id" not in st.session_state:
-    st.session_state.deletar_cliente_id = None
-if "zerar_loja_id" not in st.session_state:
-    st.session_state.zerar_loja_id = False
+# --- CONTROLE DE SESSÃO ---
+if "logado" not in st.session_state: st.session_state.logado = False
+if "tipo_usuario" not in st.session_state: st.session_state.tipo_usuario = None
+if "usuario_atual" not in st.session_state: st.session_state.usuario_atual = None
+if "gestor_view" not in st.session_state: st.session_state.gestor_view = "categorias"  
+if "categoria_selecionada" not in st.session_state: st.session_state.categoria_selecionada = None
+if "loja_selecionada" not in st.session_state: st.session_state.loja_selecionada = None
+if "login_raw" not in st.session_state: st.session_state.login_raw = ""
+if "cliente_cpf_raw" not in st.session_state: st.session_state.cliente_cpf_raw = ""
+if "imagens_temp_cache" not in st.session_state: st.session_state.imagens_temp_cache = {}
+if "contrato_temp_cache" not in st.session_state: st.session_state.contrato_temp_cache = None
+if "deletar_cliente_id" not in st.session_state: st.session_state.deletar_cliente_id = None
+if "zerar_loja_id" not in st.session_state: st.session_state.zerar_loja_id = False
 
 dados, sha = carregar_dados_github()
-
-if "categorias" not in dados:
-    dados["categorias"] = {}
-if "clientes_por_loja" not in dados:
-    dados["clientes_por_loja"] = {}
-if "dados_lojas" not in dados:
-    dados["dados_lojas"] = {}
 
 def formatar_para_cpf(texto):
     apenas_numeros = "".join([c for c in texto if c.isdigit()])[:11]
@@ -244,8 +220,10 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
     st.markdown(f'<div class="main-subtitle">Painel Operacional — {nome_loja_p}</div>', unsafe_allow_html=True)
     
     st.subheader("Registrar Vendas")
-    valor_venda_raw = st.text_input("Valor da Venda (R$)", value="0,00", key="txt_venda", on_change=callback_venda_input)
-    cpf_cliente_input = st.text_input("CPF do Cliente", key="txt_cliente_cpf", on_change=callback_cliente_cpf_input)
+    # Adicionado autocomplete="off" via html no input
+    valor_venda_raw = st.text_input("Valor da Venda (R$)", value="0,00", key="txt_venda", on_change=callback_venda_input, help="autocomplete='off'")
+    # Adicionado autocomplete="off" para evitar histórico
+    cpf_cliente_input = st.text_input("CPF do Cliente", key="txt_cliente_cpf", on_change=callback_cliente_cpf_input, help="autocomplete='off'")
     
     if st.button("Enviar Pontuação", key="btn_enviar_pontos_lojista"):
         try:
@@ -273,7 +251,12 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
                 dados["clientes_por_loja"][loja_id][cpf_formatado] = pontos_novos
                 
             if salvar_dados_github(dados, sha):
+                # EFEITO DE COMEMORAÇÃO E SUCESSO
+                st.balloons()
                 st.success(f"Sucesso! {pontos_novos} pontos adicionados para o CPF {cpf_formatado}.")
+                # Pequena pausa para o usuário ver o sucesso antes do rerun
+                import time
+                time.sleep(2)
                 st.rerun()
 
     st.write("---")
