@@ -373,7 +373,6 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
         
         if lojas_da_categoria:
             for idx_loj, loj in enumerate(lojas_da_categoria):
-                # Busca o nome fantasia no cadastro, se não houver usa o próprio ID
                 info_cadastro = dados["dados_lojas"].get(loj, {})
                 nome_fantasia_exibicao = info_cadastro.get("nome_fantasia", f"Loja Sem Nome ({loj})")
                 
@@ -390,7 +389,6 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
                     st.rerun()
                 if c_remover.button("Remover Loja do Segmento", key=f"rem_loj_{idx_loj}"):
                     dados["categorias"][cat_id]["lojas"].remove(loj)
-                    # Não removemos o cadastro nem pontos para evitar perda acidental de histórico
                     salvar_dados_github(dados, sha)
                     st.rerun()
         else:
@@ -404,7 +402,6 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
         if st.button("Criar Card de Loja"):
             nome_limpo = novo_nome_loja.strip()
             if nome_limpo:
-                # Gerador sequencial automático do ID de acesso (#loja1, #loja2...) para não confundir o gestor
                 total_lojas_existentes = len(dados["dados_lojas"].keys())
                 novo_cod_gerado = f"#loja{total_lojas_existentes + 1}"
                 
@@ -414,7 +411,6 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
                     if novo_cod_gerado not in dados["clientes_por_loja"]:
                         dados["clientes_por_loja"][novo_cod_gerado] = {}
                         
-                    # Inicializa o objeto de metadados expandidos requisitados
                     dados["dados_lojas"][novo_cod_gerado] = {
                         "nome_fantasia": nome_limpo,
                         "razao_social": "", "cnpj": "", "inscricao_estadual": "", "inscricao_municipal": "",
@@ -453,7 +449,6 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
         st.markdown(f'<div class="main-title">{info_loja.get("nome_fantasia")}</div>', unsafe_allow_html=True)
         st.markdown(f'<code>Código de Acesso Técnico Operacional: {loja_id}</code>', unsafe_allow_html=True)
         
-        # Criação do sistema estruturado de abas para organizar a volumetria de dados cadastrais
         tab_metricas, tab_cadastro, tab_contrato = st.tabs(["📊 Métricas e Clientes", "📋 Ficha Cadastral", "📝 Contrato Digital"])
         
         with tab_metricas:
@@ -494,7 +489,6 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
         with tab_cadastro:
             st.subheader("Informações Empresariais e Contratuais")
             
-            # Formulário de captação de dados completo estruturado por sub-segmentos lógicos
             with st.form(key=f"form_cadastro_{loja_id}"):
                 st.markdown("##### Dados de Identificação Oficial")
                 c1, c2 = st.columns(2)
@@ -525,7 +519,10 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
                 f_pix = st.text_input("Chave PIX", value=info_loja.get("chave_pix", ""))
                 f_segmento = st.text_input("Segmento Comercial da Empresa", value=info_loja.get("segmento", dados["categorias"][cat_id]["nome"]))
                 
-                if st.form_submit_with_button(label="💾 Salvar Ficha Cadastral"):
+                # CORREÇÃO CRÍTICA AQUI: Usando o componente de submissão nativo correto do Streamlit
+                salvar_cadastro = st.form_submit_button(label="💾 Salvar Ficha Cadastral")
+                
+                if salvar_cadastro:
                     info_loja["nome_fantasia"] = f_fantasia
                     info_loja["razao_social"] = f_razao
                     info_loja["cnpj"] = f_cnpj
@@ -549,7 +546,6 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
         with tab_contrato:
             st.subheader("Contrato de Parceria GLOBAL")
             
-            # Gerenciador de Upload do Documento Digitalizado
             doc_contrato = st.file_uploader("Anexar novo contrato (Formatos aceitos: PDF)", type=["pdf"], key=f"pdf_{loja_id}")
             
             if doc_contrato is not None:
@@ -567,7 +563,6 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
             if info_loja.get("contrato_b64"):
                 st.success("📝 Há um contrato assinado e ativo para esta empresa no banco de dados.")
                 
-                # Download Seguro do arquivo binário reconstruído
                 pdf_bytes_down = base64.b64decode(info_loja["contrato_b64"])
                 st.download_button(
                     label="📥 Baixar e Visualizar Contrato Vinculado (PDF)",
