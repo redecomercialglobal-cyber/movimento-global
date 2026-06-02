@@ -91,6 +91,10 @@ if "login_raw" not in st.session_state:
 if "cliente_cpf_raw" not in st.session_state:
     st.session_state.cliente_cpf_raw = ""
 
+# Dicionário dinâmico no state para armazenar os rascunhos de imagens de forma persistente por categoria
+if "imagens_temp_cache" not in st.session_state:
+    st.session_state.imagens_temp_cache = {}
+
 dados, sha = carregar_dados_github()
 
 if "categorias" not in dados:
@@ -269,13 +273,12 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
         for cat_id, cat_info in list(dados["categorias"].items()):
             st.markdown('<div class="card">', unsafe_allow_html=True)
             
-            # 1. Renderização Segura da Imagem de Capa Atual
+            # 1. Renderização Segura da Imagem de Capa Atual (vinda do banco de dados)
             if cat_info.get("capa_b64"):
                 try:
                     bytes_img = base64.b64decode(cat_info["capa_b64"])
                     st.image(bytes_img, use_container_width=True)
                     
-                    # Botão explícito para remover a imagem atual do banco de dados
                     if st.button("🗑️ Remover Capa Atual", key=f"btn_remover_capa_{cat_id}"):
                         cat_info["capa_b64"] = ""
                         salvar_dados_github(dados, sha)
@@ -285,20 +288,34 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
             else:
                 st.info("Nenhuma imagem de capa cadastrada para esta categoria.")
             
-            # 2. Upload Separado Dinâmico (Sem travar o X)
+            # 2. Upload Otimizado com captura controlada em Session State
             nova_img = st.file_uploader("Selecionar Nova Imagem de Capa", type=["png", "jpg", "jpeg"], key=f"upload_{cat_id}")
             
+            # Se o usuário enviou um arquivo, interceptamos e salvamos no cache estável do Session State
             if nova_img is not None:
-                st.image(nova_img, caption="💡 Pré-visualização do rascunho (Clique abaixo para salvar)", use_container_width=True)
+                st.session_state.imagens_temp_cache[cat_id] = nova_img.getvalue()
+            else:
+                # Se ele clicou no 'X' e limpou o uploader, limpamos o cache de rascunho correspondente
+                if cat_id in st.session_state.imagens_temp_cache:
+                    del st.session_state.imagens_temp_cache[cat_id]
+            
+            # Se houver um rascunho ativo no cache, ele é mostrado com o botão persistente de confirmação
+            if cat_id in st.session_state.imagens_temp_cache:
+                st.image(st.session_state.imagens_temp_cache[cat_id], caption="💡 Pré-visualização do rascunho carregado", use_container_width=True)
                 if st.button("💾 Confirmar e Salvar Nova Capa", key=f"btn_salvar_img_{cat_id}"):
-                    bytes_data = nova_img.read()
+                    # Lê os bytes armazenados no cache estável
+                    bytes_data = st.session_state.imagens_temp_cache[cat_id]
                     cat_info["capa_b64"] = base64.b64encode(bytes_data).decode("utf-8")
+                    
+                    # Limpa o cache após o salvamento para evitar resíduos na interface
+                    del st.session_state.imagens_temp_cache[cat_id]
+                    
                     salvar_dados_github(dados, sha)
                     st.rerun()
                 
             # 3. Input de Texto para Modificar Nome
             nome_editado = st.text_input("Nome da Categoria", value=cat_info["nome"], key=f"nome_{cat_id}")
-            if nome_editado != cat_info["nome"] and nome_editado.strip() != "":
+            if nome_editado != cat_info["nome"] and nome_editated.strip() != "":
                 cat_info["nome"] = nome_editado.strip()
                 salvar_dados_github(dados, sha)
                 st.rerun()
@@ -311,6 +328,8 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
                 st.rerun()
                 
             if col_excluir.button("Excluir Categoria", key=f"rem_cat_{cat_id}"):
+                if cat_id in st.session_state.imagens_temp_cache:
+                    del st.session_state.imagens_temp_cache[cat_id]
                 del dados["categorias"][cat_id]
                 salvar_dados_github(dados, sha)
                 st.rerun()
@@ -322,7 +341,6 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
         nova_cat_nome = st.text_input("Nome da Nova Categoria", placeholder="Ex: Vestuário, Farmácias...")
         if st.button("Adicionar Categoria"):
             if nova_cat_nome.strip():
-                # Gera ID sequencial robusto para a nova categoria
                 lista_ids = [int(k.split('_')[1]) for k in dados['categorias'].keys() if '_' in k]
                 proximo_id = max(lista_ids) + 1 if lista_ids else 1
                 novo_id = f"cat_{proximo_id}"
