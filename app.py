@@ -238,14 +238,18 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "cliente":
 # 3. TELA OPERACIONAL DO LOJISTA
 # =========================================================
 elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
+    import time  # Import necessário para a pausa visual
+    
     loja_id = st.session_state.usuario_atual
     nome_loja_p = dados.get("dados_lojas", {}).get(loja_id, {}).get("nome_fantasia", loja_id)
     st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="main-subtitle">Painel Operacional — {nome_loja_p}</div>', unsafe_allow_html=True)
     
     st.subheader("Registrar Vendas")
-    valor_venda_raw = st.text_input("Valor da Venda (R$)", value="0,00", key="txt_venda", on_change=callback_venda_input)
-    cpf_cliente_input = st.text_input("CPF do Cliente", key="txt_cliente_cpf", on_change=callback_cliente_cpf_input)
+    # Adicionado autocomplete="off"
+    valor_venda_raw = st.text_input("Valor da Venda (R$)", value="0,00", key="txt_venda", on_change=callback_venda_input, autocomplete="off")
+    # Adicionado autocomplete="off"
+    cpf_cliente_input = st.text_input("CPF do Cliente", key="txt_cliente_cpf", on_change=callback_cliente_cpf_input, autocomplete="off")
     
     if st.button("Enviar Pontuação", key="btn_enviar_pontos_lojista"):
         try:
@@ -273,7 +277,11 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
                 dados["clientes_por_loja"][loja_id][cpf_formatado] = pontos_novos
                 
             if salvar_dados_github(dados, sha):
+                # Efeito de comemoração
+                st.balloons()
                 st.success(f"Sucesso! {pontos_novos} pontos adicionados para o CPF {cpf_formatado}.")
+                # Pausa de 2 segundos para o usuário ver o efeito antes de recarregar
+                time.sleep(2)
                 st.rerun()
 
     st.write("---")
@@ -282,7 +290,6 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
         st.session_state.tipo_usuario = None
         st.session_state.usuario_atual = None
         st.rerun()
-
 
 # =========================================================
 # 4. PAINEL ADMINISTRATIVO DO GESTOR GLOBAL
