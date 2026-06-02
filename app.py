@@ -156,7 +156,7 @@ if not st.session_state.logado:
     st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allow_html=True)
     st.markdown('<div class="main-subtitle">Um movemento que une lojas e clientes</div>', unsafe_allow_html=True)
     
-    id_limpo = st.text_input("Identificação (CPF ou #CódigoLoja)", key="txt_login", on_change=callback_login_input).strip()
+    id_limpo = st.text_input("Identificação (CPF)", key="txt_login", on_change=callback_login_input).strip()
 
     if st.button("Entrar", key="btn_entrar_login"):
         if id_limpo:
@@ -178,7 +178,7 @@ if not st.session_state.logado:
                     st.session_state.usuario_atual = id_limpo
                     st.rerun()
                 else:
-                    st.error("Código de lojista não identificado no sistema.")
+                    st.error("Código de lojista não identificado no systema.")
             else:
                 numeros_cpf = "".join([c for c in id_limpo if c.isdigit()])
                 if len(numeros_cpf) == 11:
@@ -341,12 +341,12 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
                         st.rerun()
                     
                 nome_editado = st.text_input("Editar Nome", value=cat_info["nome"], key=f"nome_{cat_id}")
-                if nome_editado != cat_info["nome"] and nome_editado.strip() != "":
+                if nome_editado != cat_info["nome"] and nome_editated.strip() != "":
                     cat_info["nome"] = nome_editado.strip()
                     salvar_dados_github(dados, sha)
                     st.rerun()
                 
-                if st.button("Excluir Categoria do Sistema", key=f"rem_cat_{cat_id}"):
+                if st.button("Excluir Categoria do Systema", key=f"rem_cat_{cat_id}"):
                     if cat_id in st.session_state.imagens_temp_cache:
                         del st.session_state.imagens_temp_cache[cat_id]
                     del dados["categorias"][cat_id]
