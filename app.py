@@ -53,6 +53,9 @@ def carregar_dados_github():
             },
             "clientes_por_loja": {
                 "#loja123": {}
+            },
+            "dados_lojas": {
+                "#loja123": {"nome_fantasia": "Loja Exemplo Inicial"}
             }
         }
         return estrutura_inicial, None
@@ -91,9 +94,10 @@ if "login_raw" not in st.session_state:
 if "cliente_cpf_raw" not in st.session_state:
     st.session_state.cliente_cpf_raw = ""
 
-# Dicionário dinâmico no state para armazenar os rascunhos de imagens de forma persistente por categoria
 if "imagens_temp_cache" not in st.session_state:
     st.session_state.imagens_temp_cache = {}
+if "contrato_temp_cache" not in st.session_state:
+    st.session_state.contrato_temp_cache = None
 
 dados, sha = carregar_dados_github()
 
@@ -101,6 +105,8 @@ if "categorias" not in dados:
     dados["categorias"] = {}
 if "clientes_por_loja" not in dados:
     dados["clientes_por_loja"] = {}
+if "dados_lojas" not in dados:
+    dados["dados_lojas"] = {}
 
 def formatar_para_cpf(texto):
     apenas_numeros = "".join([c for c in texto if c.isdigit()])[:11]
@@ -191,10 +197,11 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "cliente":
         if cliente_cpf in listagem:
             encontrou_pontos = True
             pts = listagem[cliente_cpf]
+            nome_loja_exibir = dados.get("dados_lojas", {}).get(loja, {}).get("nome_fantasia", loja)
             st.markdown(f"""
                 <div class="card">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-size: 18px; font-weight:600; color:#1F2937;">🏢 Loja: {loja}</span>
+                        <span style="font-size: 18px; font-weight:600; color:#1F2937;">🏢 Loja: {nome_loja_exibir}</span>
                         <span style="font-size: 22px; font-weight:700; color:#2563EB;">{pts} pts</span>
                     </div>
                 </div>
@@ -214,8 +221,9 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "cliente":
 # =========================================================
 elif st.session_state.logado and st.session_state.tipo_usuario == "lojista":
     loja_id = st.session_state.usuario_atual
+    nome_loja_p = dados.get("dados_lojas", {}).get(loja_id, {}).get("nome_fantasia", loja_id)
     st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="main-subtitle">Painel Operacional — Loja {loja_id}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="main-subtitle">Painel Operacional — {nome_loja_p}</div>', unsafe_allow_html=True)
     
     st.subheader("Registrar Vendas")
     valor_venda_raw = st.text_input("Valor da Venda (R$)", value="0,00", key="txt_venda", on_change=callback_venda_input)
@@ -273,7 +281,6 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
         for cat_id, cat_info in list(dados["categorias"].items()):
             st.markdown('<div class="card">', unsafe_allow_html=True)
             
-            # 1. Renderização Segura da Imagem de Capa Atual (vinda do banco de dados)
             if cat_info.get("capa_b64"):
                 try:
                     bytes_img = base64.b64decode(cat_info["capa_b64"])
@@ -288,39 +295,29 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
             else:
                 st.info("Nenhuma imagem de capa cadastrada para esta categoria.")
             
-            # 2. Upload Otimizado com captura controlada em Session State
             nova_img = st.file_uploader("Selecionar Nova Imagem de Capa", type=["png", "jpg", "jpeg"], key=f"upload_{cat_id}")
             
-            # Se o usuário enviou um arquivo, interceptamos e salvamos no cache estável do Session State
             if nova_img is not None:
                 st.session_state.imagens_temp_cache[cat_id] = nova_img.getvalue()
             else:
-                # Se ele clicou no 'X' e limpou o uploader, limpamos o cache de rascunho correspondente
                 if cat_id in st.session_state.imagens_temp_cache:
                     del st.session_state.imagens_temp_cache[cat_id]
             
-            # Se houver um rascunho ativo no cache, ele é mostrado com o botão persistente de confirmação
             if cat_id in st.session_state.imagens_temp_cache:
                 st.image(st.session_state.imagens_temp_cache[cat_id], caption="💡 Pré-visualização do rascunho carregado", use_container_width=True)
                 if st.button("💾 Confirmar e Salvar Nova Capa", key=f"btn_salvar_img_{cat_id}"):
-                    # Lê os bytes armazenados no cache estável
                     bytes_data = st.session_state.imagens_temp_cache[cat_id]
                     cat_info["capa_b64"] = base64.b64encode(bytes_data).decode("utf-8")
-                    
-                    # Limpa o cache após o salvamento para evitar resíduos na interface
                     del st.session_state.imagens_temp_cache[cat_id]
-                    
                     salvar_dados_github(dados, sha)
                     st.rerun()
                 
-            # 3. Input de Texto para Modificar Nome
             nome_editado = st.text_input("Nome da Categoria", value=cat_info["nome"], key=f"nome_{cat_id}")
-            if nome_editado != cat_info["nome"] and nome_editated.strip() != "":
+            if nome_editado != cat_info["nome"] and nome_editado.strip() != "":
                 cat_info["nome"] = nome_editado.strip()
                 salvar_dados_github(dados, sha)
                 st.rerun()
             
-            # 4. Ações do Card
             col_entrar, col_excluir = st.columns(2)
             if col_entrar.button(f"Entrar em {cat_info['nome']}", key=f"entrar_cat_{cat_id}"):
                 st.session_state.categoria_selecionada = cat_id
@@ -358,7 +355,7 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
             st.rerun()
 
     # -----------------------------------------------------
-    # VISTA B: DENTRO DE UMA CATEGORIA
+    # VISTA B: DENTRO DE UMA CATEGORIA (LISTAGEM DE LOJAS)
     # -----------------------------------------------------
     elif st.session_state.gestor_view == "dentro_categoria":
         cat_id = st.session_state.categoria_selecionada
@@ -376,9 +373,13 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
         
         if lojas_da_categoria:
             for idx_loj, loj in enumerate(lojas_da_categoria):
+                # Busca o nome fantasia no cadastro, se não houver usa o próprio ID
+                info_cadastro = dados["dados_lojas"].get(loj, {})
+                nome_fantasia_exibicao = info_cadastro.get("nome_fantasia", f"Loja Sem Nome ({loj})")
+                
                 st.markdown(f"""
                     <div class="card">
-                        <div class="card-title">🏢 Loja: {loj}</div>
+                        <div class="card-title">🏢 Loja: {nome_fantasia_exibicao}</div>
                     </div>
                 """, unsafe_allow_html=True)
                 
@@ -389,6 +390,7 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
                     st.rerun()
                 if c_remover.button("Remover Loja do Segmento", key=f"rem_loj_{idx_loj}"):
                     dados["categorias"][cat_id]["lojas"].remove(loj)
+                    # Não removemos o cadastro nem pontos para evitar perda acidental de histórico
                     salvar_dados_github(dados, sha)
                     st.rerun()
         else:
@@ -396,68 +398,188 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
             
         st.write("---")
         st.subheader("Adicionar Nova Loja nesta Categoria")
-        novo_cod_loja = st.text_input("Código identificador da loja (Deve iniciar com #)", placeholder="#exemploLoja")
+        
+        novo_nome_loja = st.text_input("Nome da Loja (Nome Fantasia)", placeholder="Ex: Pet Shop do Totó")
+        
         if st.button("Criar Card de Loja"):
-            cod_limpo = novo_cod_loja.strip()
-            if cod_limpo.startswith("#") and len(cod_limpo) > 1:
-                if cod_limpo not in dados["categorias"][cat_id]["lojas"]:
-                    dados["categorias"][cat_id]["lojas"].append(cod_limpo)
-                    if cod_limpo not in dados["clientes_por_loja"]:
-                        dados["clientes_por_loja"][cod_limpo] = {}
+            nome_limpo = novo_nome_loja.strip()
+            if nome_limpo:
+                # Gerador sequencial automático do ID de acesso (#loja1, #loja2...) para não confundir o gestor
+                total_lojas_existentes = len(dados["dados_lojas"].keys())
+                novo_cod_gerado = f"#loja{total_lojas_existentes + 1}"
+                
+                if novo_cod_gerado not in dados["categorias"][cat_id]["lojas"]:
+                    dados["categorias"][cat_id]["lojas"].append(novo_cod_gerado)
+                    
+                    if novo_cod_gerado not in dados["clientes_por_loja"]:
+                        dados["clientes_por_loja"][novo_cod_gerado] = {}
+                        
+                    # Inicializa o objeto de metadados expandidos requisitados
+                    dados["dados_lojas"][novo_cod_gerado] = {
+                        "nome_fantasia": nome_limpo,
+                        "razao_social": "", "cnpj": "", "inscricao_estadual": "", "inscricao_municipal": "",
+                        "endereco_completo": "", "telefone": "", "whatsapp": "", "email": "",
+                        "nome_proprietario": "", "cpf_representante": "", "rg_representante": "",
+                        "dados_bancarios": "", "chave_pix": "", "segmento": cat_nome, "contrato_b64": ""
+                    }
+                    
                     if salvar_dados_github(dados, sha):
-                        st.success(f"Loja {cod_limpo} vinculada com sucesso!")
+                        st.success(f"Loja '{nome_limpo}' vinculada! Código de acesso operacional gerado: {novo_cod_gerado}")
                         st.rerun()
-                else:
-                    st.warning("Esta loja já está nessa categoria.")
             else:
-                st.error("O código deve começar obrigatoriamente com '#'.")
+                st.error("O nome da loja não pode estar vazio.")
 
     # -----------------------------------------------------
-    # VISTA C: DETALHAMENTO ISOLADO DA LOJA SELECIONADA
+    # VISTA C: DETALHAMENTO ISOLADO E FICHA CADASTRAL DA LOJA
     # -----------------------------------------------------
     elif st.session_state.gestor_view == "dentro_loja":
         cat_id = st.session_state.categoria_selecionada
         loja_id = st.session_state.loja_selecionada
         
-        if st.button(f"⬅️ Voltar para a categoria {dados['categorias'][cat_id]['nome']}"):
+        info_loja = dados["dados_lojas"].setdefault(loja_id, {
+            "nome_fantasia": loja_id,
+            "razao_social": "", "cnpj": "", "inscricao_estadual": "", "inscricao_municipal": "",
+            "endereco_completo": "", "telefone": "", "whatsapp": "", "email": "",
+            "nome_proprietario": "", "cpf_representante": "", "rg_representante": "",
+            "dados_bancarios": "", "chave_pix": "", "segmento": "", "contrato_b64": ""
+        })
+        
+        if st.button(f"⬅️ Voltar para {dados['categorias'][cat_id]['nome']}"):
             st.session_state.gestor_view = "dentro_categoria"
             st.session_state.loja_selecionada = None
+            st.session_state.contrato_temp_cache = None
             st.rerun()
             
-        st.markdown(f'<div class="main-title">Loja {loja_id}</div>', unsafe_allow_html=True)
-        st.markdown('<div class="main-subtitle">Métricas e Clientes Isolados</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="main-title">{info_loja.get("nome_fantasia")}</div>', unsafe_allow_html=True)
+        st.markdown(f'<code>Código de Acesso Técnico Operacional: {loja_id}</code>', unsafe_allow_html=True)
         
-        clientes_da_loja = dados["clientes_por_loja"].get(loja_id, {})
+        # Criação do sistema estruturado de abas para organizar a volumetria de dados cadastrais
+        tab_metricas, tab_cadastro, tab_contrato = st.tabs(["📊 Métricas e Clientes", "📋 Ficha Cadastral", "📝 Contrato Digital"])
         
-        try:
-            total_pontos = sum(int(v) for v in clientes_da_loja.values())
-            faturamento_equivalente = total_pontos / 10
-        except Exception:
-            total_pontos = 0
-            faturamento_equivalente = 0.0
-            
-        col1, col2 = st.columns(2)
-        col1.metric("Total de Pontos Emitidos", f"{total_pontos} pts")
-        col2.metric("Movimentação Financeira", f"R$ {faturamento_equivalente:,.2f}")
-        
-        st.write("---")
-        st.subheader("Lista de Clientes Desta Loja")
-        
-        if clientes_da_loja:
-            for idx, (cli, pts) in enumerate(list(clientes_da_loja.items())):
-                col_c, col_p, col_a = st.columns([2, 1, 1])
-                col_c.write(f"💳 CPF: {cli}")
-                col_p.write(f"**{pts}** pts")
-                if col_a.button("Excluir Cliente", key=f"del_cli_{idx}"):
-                    del dados["clientes_por_loja"][loja_id][cli]
-                    salvar_dados_github(dados, sha)
-                    st.rerun()
+        with tab_metricas:
+            clientes_da_loja = dados["clientes_por_loja"].get(loja_id, {})
+            try:
+                total_pontos = sum(int(v) for v in clientes_da_loja.values())
+                faturamento_equivalente = total_pontos / 10
+            except Exception:
+                total_pontos = 0
+                faturamento_equivalente = 0.0
+                
+            col1, col2 = st.columns(2)
+            col1.metric("Total de Pontos Emitidos", f"{total_pontos} pts")
+            col2.metric("Movimentação Financeira", f"R$ {faturamento_equivalente:,.2f}")
             
             st.write("---")
-            if st.button("🚨 Zerar Banco de Dados desta Loja", type="primary", key="btn_reset_loja_completo"):
-                dados["clientes_por_loja"][loja_id] = {}
-                salvar_dados_github(dados, sha)
-                st.success("Dados da loja limpos com sucesso!")
-                st.rerun()
-        else:
-            st.info("Nenhum cliente comprou nesta loja até agora.")
+            st.subheader("Lista de Clientes Desta Loja")
+            
+            if clientes_da_loja:
+                for idx, (cli, pts) in enumerate(list(clientes_da_loja.items())):
+                    col_c, col_p, col_a = st.columns([2, 1, 1])
+                    col_c.write(f"💳 CPF: {cli}")
+                    col_p.write(f"**{pts}** pts")
+                    if col_a.button("Excluir Cliente", key=f"del_cli_{idx}"):
+                        del dados["clientes_por_loja"][loja_id][cli]
+                        salvar_dados_github(dados, sha)
+                        st.rerun()
+                
+                st.write("---")
+                if st.button("🚨 Zerar Banco de Dados desta Loja", type="primary", key="btn_reset_loja_completo"):
+                    dados["clientes_por_loja"][loja_id] = {}
+                    salvar_dados_github(dados, sha)
+                    st.success("Dados da loja limpos com sucesso!")
+                    st.rerun()
+            else:
+                st.info("Nenhum cliente comprou nesta loja até agora.")
+                
+        with tab_cadastro:
+            st.subheader("Informações Empresariais e Contratuais")
+            
+            # Formulário de captação de dados completo estruturado por sub-segmentos lógicos
+            with st.form(key=f"form_cadastro_{loja_id}"):
+                st.markdown("##### Dados de Identificação Oficial")
+                c1, c2 = st.columns(2)
+                f_fantasia = c1.text_input("Nome Fantasia", value=info_loja.get("nome_fantasia", ""))
+                f_razao = c2.text_input("Razão Social", value=info_loja.get("razao_social", ""))
+                
+                c3, c4, c5 = st.columns(3)
+                f_cnpj = c3.text_input("CNPJ", value=info_loja.get("cnpj", ""))
+                f_ie = c4.text_input("Inscrição Estadual", value=info_loja.get("inscricao_state", ""))
+                f_im = c5.text_input("Inscrição Municipal", value=info_loja.get("inscricao_municipal", ""))
+                
+                st.markdown("##### Endereço e Contatos")
+                f_end = st.text_input("Endereço Completo", value=info_loja.get("endereco_completo", ""))
+                
+                c6, c7, c8 = st.columns(3)
+                f_tel = c6.text_input("Telefone", value=info_loja.get("telefone", ""))
+                f_whatsapp = c7.text_input("WhatsApp", value=info_loja.get("whatsapp", ""))
+                f_email = c8.text_input("E-mail Comercial", value=info_loja.get("email", ""))
+                
+                st.markdown("##### Representação Legal")
+                f_proprietario = st.text_input("Nome do Proprietário", value=info_loja.get("nome_proprietario", ""))
+                c9, c10 = st.columns(2)
+                f_cpf_rep = c9.text_input("CPF do Representante Legal", value=info_loja.get("cpf_representante", ""))
+                f_rg_rep = c10.text_input("RG do Representante Legal", value=info_loja.get("rg_representante", ""))
+                
+                st.markdown("##### Financeiro e Faturamento")
+                f_banco = st.text_input("Dados Bancários (Banco, Agência, Conta)", value=info_loja.get("dados_bancarios", ""))
+                f_pix = st.text_input("Chave PIX", value=info_loja.get("chave_pix", ""))
+                f_segmento = st.text_input("Segmento Comercial da Empresa", value=info_loja.get("segmento", dados["categorias"][cat_id]["nome"]))
+                
+                if st.form_submit_with_button(label="💾 Salvar Ficha Cadastral"):
+                    info_loja["nome_fantasia"] = f_fantasia
+                    info_loja["razao_social"] = f_razao
+                    info_loja["cnpj"] = f_cnpj
+                    info_loja["inscricao_state"] = f_ie
+                    info_loja["inscricao_municipal"] = f_im
+                    info_loja["endereco_completo"] = f_end
+                    info_loja["telefone"] = f_tel
+                    info_loja["whatsapp"] = f_whatsapp
+                    info_loja["email"] = f_email
+                    info_loja["nome_proprietario"] = f_proprietario
+                    info_loja["cpf_representante"] = f_cpf_rep
+                    info_loja["rg_representante"] = f_rg_rep
+                    info_loja["dados_bancarios"] = f_banco
+                    info_loja["chave_pix"] = f_pix
+                    info_loja["segmento"] = f_segmento
+                    
+                    if salvar_dados_github(dados, sha):
+                        st.success("Ficha cadastral salva com sucesso!")
+                        st.rerun()
+                        
+        with tab_contrato:
+            st.subheader("Contrato de Parceria GLOBAL")
+            
+            # Gerenciador de Upload do Documento Digitalizado
+            doc_contrato = st.file_uploader("Anexar novo contrato (Formatos aceitos: PDF)", type=["pdf"], key=f"pdf_{loja_id}")
+            
+            if doc_contrato is not None:
+                st.session_state.contrato_temp_cache = doc_contrato.getvalue()
+                st.info("Documento carregado na memória temporária.")
+                if st.button("🔒 Confirmar e Vincular Contrato", key=f"btn_salvar_pdf_{loja_id}"):
+                    bytes_pdf = st.session_state.contrato_temp_cache
+                    info_loja["contrato_b64"] = base64.b64encode(bytes_pdf).decode("utf-8")
+                    st.session_state.contrato_temp_cache = None
+                    if salvar_dados_github(dados, sha):
+                        st.success("Contrato oficial anexado com sucesso!")
+                        st.rerun()
+            
+            st.write("---")
+            if info_loja.get("contrato_b64"):
+                st.success("📝 Há um contrato assinado e ativo para esta empresa no banco de dados.")
+                
+                # Download Seguro do arquivo binário reconstruído
+                pdf_bytes_down = base64.b64decode(info_loja["contrato_b64"])
+                st.download_button(
+                    label="📥 Baixar e Visualizar Contrato Vinculado (PDF)",
+                    data=pdf_bytes_down,
+                    file_name=f"contrato_global_{loja_id.replace('#','')}.pdf",
+                    mime="application/pdf"
+                )
+                
+                if st.button("🗑️ Remover Contrato Vigente", key=f"del_pdf_{loja_id}"):
+                    info_loja["contrato_b64"] = ""
+                    salvar_dados_github(dados, sha)
+                    st.success("Contrato excluído!")
+                    st.rerun()
+            else:
+                st.warning("Nenhum contrato de parceria digitalizado anexado até o momento.")
