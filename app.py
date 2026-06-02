@@ -20,9 +20,9 @@ def aplicar_estilo():
         .card { background-color: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         .card-title { font-size: 20px; font-weight: 700; color: #1F2937; margin-bottom: 10px; }
         
-        /* Ajuste Focado para Capas de Categorias (Correção de tamanho) */
+        /* Ajuste Focado para Capas de Categorias (Imagem ligeiramente maior conforme solicitado) */
         .container-imagem-capa { text-align: center; margin-bottom: 15px; background-color: #F9FAFB; border-radius: 8px; padding: 10px; }
-        .container-imagem-capa img { max-height: 140px; object-fit: contain; border-radius: 6px; }
+        .container-imagem-capa img { max-height: 190px; object-fit: contain; border-radius: 6px; }
         
         /* Nome da Categoria muito mais visível */
         .categoria-card-titulo { font-size: 26px; font-weight: 700; color: #111827; text-align: center; margin-top: 5px; margin-bottom: 15px; }
@@ -154,7 +154,7 @@ def callback_cliente_cpf_input():
 # =========================================================
 if not st.session_state.logado:
     st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allow_html=True)
-    st.markdown('<div class="main-subtitle">Um movimento que une lojas e clientes</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-subtitle">Um movemento que une lojas e clientes</div>', unsafe_allow_html=True)
     
     id_limpo = st.text_input("Identificação (CPF ou #CódigoLoja)", key="txt_login", on_change=callback_login_input).strip()
 
@@ -292,17 +292,11 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
         for cat_id, cat_info in list(dados["categorias"].items()):
             st.markdown('<div class="card">', unsafe_allow_html=True)
             
-            # Renderização Controlada da Imagem de Capa (Diminuída e Centralizada)
+            # Renderização Controlada da Imagem de Capa (Dimensão aumentada sutilmente via CSS)
             if cat_info.get("capa_b64"):
                 try:
-                    # Geramos uma tag HTML limpa para forçar o limite de tamanho correto
                     html_img = f'<div class="container-imagem-capa"><img src="data:image/png;base64,{cat_info["capa_b64"]}"/></div>'
                     st.markdown(html_img, unsafe_allow_html=True)
-                    
-                    if st.button("🗑️ Remover Capa Atual", key=f"btn_remover_capa_{cat_id}"):
-                        cat_info["capa_b64"] = ""
-                        salvar_dados_github(dados, sha)
-                        st.rerun()
                 except Exception:
                     st.warning("Erro ao carregar imagem de capa.")
             else:
@@ -321,6 +315,14 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
             
             # Configurações adicionais encolhidas abaixo (Área de gerenciamento interna do card)
             with st.expander("⚙️ Configurações da Categoria"):
+                
+                # NOVIDADE: O botão de remoção da capa agora fica localizado estrategicamente aqui dentro
+                if cat_info.get("capa_b64"):
+                    if st.button("🗑️ Remover Capa Atual", key=f"btn_remover_capa_{cat_id}"):
+                        cat_info["capa_b64"] = ""
+                        salvar_dados_github(dados, sha)
+                        st.rerun()
+                
                 nova_img = st.file_uploader("Alterar Imagem de Capa", type=["png", "jpg", "jpeg"], key=f"upload_{cat_id}")
                 
                 if nova_img is not None:
