@@ -20,9 +20,20 @@ def aplicar_estilo():
         .card { background-color: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         .card-title { font-size: 20px; font-weight: 700; color: #1F2937; margin-bottom: 10px; }
         
-        /* Botões */
+        /* Ajuste Focado para Capas de Categorias (Correção de tamanho) */
+        .container-imagem-capa { text-align: center; margin-bottom: 15px; background-color: #F9FAFB; border-radius: 8px; padding: 10px; }
+        .container-imagem-capa img { max-height: 140px; object-fit: contain; border-radius: 6px; }
+        
+        /* Nome da Categoria muito mais visível */
+        .categoria-card-titulo { font-size: 26px; font-weight: 700; color: #111827; text-align: center; margin-top: 5px; margin-bottom: 15px; }
+        
+        /* Botões Padrão */
         div.stButton > button:first-child { background-color: #2563EB !important; color: white !important; font-size: 16px !important; font-weight: 600 !important; padding: 10px 20px !important; border-radius: 8px !important; border: none !important; width: 100% !important; transition: all 0.2s ease; }
         div.stButton > button:first-child:hover { background-color: #1D4ED8 !important; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2); }
+        
+        /* Botão Principal de Navegação (Destaque Ampliado) */
+        div.stButton > button[key^="entrar_cat_"] { background-color: #10B981 !important; font-size: 18px !important; padding: 12px 20px !important; box-shadow: 0 2px 4px rgba(16, 185, 129, 0.1); }
+        div.stButton > button[key^="entrar_cat_"]:hover { background-color: #059669 !important; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3); }
         
         /* Botões de Exclusão / Perigo */
         div.stButton > button[key^="btn_sair"], div.stButton > button[key^="rem_"], div.stButton > button[key^="del_"], div.stButton > button[key^="btn_reset"], div.stButton > button[key^="btn_remover_capa"] { background-color: #EF4444 !important; color: white !important; }
@@ -281,10 +292,12 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
         for cat_id, cat_info in list(dados["categorias"].items()):
             st.markdown('<div class="card">', unsafe_allow_html=True)
             
+            # Renderização Controlada da Imagem de Capa (Diminuída e Centralizada)
             if cat_info.get("capa_b64"):
                 try:
-                    bytes_img = base64.b64decode(cat_info["capa_b64"])
-                    st.image(bytes_img, use_container_width=True)
+                    # Geramos uma tag HTML limpa para forçar o limite de tamanho correto
+                    html_img = f'<div class="container-imagem-capa"><img src="data:image/png;base64,{cat_info["capa_b64"]}"/></div>'
+                    st.markdown(html_img, unsafe_allow_html=True)
                     
                     if st.button("🗑️ Remover Capa Atual", key=f"btn_remover_capa_{cat_id}"):
                         cat_info["capa_b64"] = ""
@@ -295,41 +308,48 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
             else:
                 st.info("Nenhuma imagem de capa cadastrada para esta categoria.")
             
-            nova_img = st.file_uploader("Selecionar Nova Imagem de Capa", type=["png", "jpg", "jpeg"], key=f"upload_{cat_id}")
+            # Nome da categoria aumentado e destacado como título real do card
+            st.markdown(f'<div class="categoria-card-titulo">📂 {cat_info["nome"]}</div>', unsafe_allow_html=True)
             
-            if nova_img is not None:
-                st.session_state.imagens_temp_cache[cat_id] = nova_img.getvalue()
-            else:
-                if cat_id in st.session_state.imagens_temp_cache:
-                    del st.session_state.imagens_temp_cache[cat_id]
-            
-            if cat_id in st.session_state.imagens_temp_cache:
-                st.image(st.session_state.imagens_temp_cache[cat_id], caption="💡 Pré-visualização do rascunho carregado", use_container_width=True)
-                if st.button("💾 Confirmar e Salvar Nova Capa", key=f"btn_salvar_img_{cat_id}"):
-                    bytes_data = st.session_state.imagens_temp_cache[cat_id]
-                    cat_info["capa_b64"] = base64.b64encode(bytes_data).decode("utf-8")
-                    del st.session_state.imagens_temp_cache[cat_id]
-                    salvar_dados_github(dados, sha)
-                    st.rerun()
-                
-            nome_editado = st.text_input("Nome da Categoria", value=cat_info["nome"], key=f"nome_{cat_id}")
-            if nome_editado != cat_info["nome"] and nome_editado.strip() != "":
-                cat_info["nome"] = nome_editado.strip()
-                salvar_dados_github(dados, sha)
-                st.rerun()
-            
-            col_entrar, col_excluir = st.columns(2)
-            if col_entrar.button(f"Entrar em {cat_info['nome']}", key=f"entrar_cat_{cat_id}"):
+            # Botão de Ação Principal (Entrar) em posição de destaque absoluto
+            if st.button(f"Entrar em {cat_info['nome']}", key=f"entrar_cat_{cat_id}"):
                 st.session_state.categoria_selecionada = cat_id
                 st.session_state.gestor_view = "dentro_categoria"
                 st.rerun()
+            
+            st.write("") # Pequeno espaçador interno
+            
+            # Configurações adicionais encolhidas abaixo (Área de gerenciamento interna do card)
+            with st.expander("⚙️ Configurações da Categoria"):
+                nova_img = st.file_uploader("Alterar Imagem de Capa", type=["png", "jpg", "jpeg"], key=f"upload_{cat_id}")
                 
-            if col_excluir.button("Excluir Categoria", key=f"rem_cat_{cat_id}"):
+                if nova_img is not None:
+                    st.session_state.imagens_temp_cache[cat_id] = nova_img.getvalue()
+                else:
+                    if cat_id in st.session_state.imagens_temp_cache:
+                        del st.session_state.imagens_temp_cache[cat_id]
+                
                 if cat_id in st.session_state.imagens_temp_cache:
-                    del st.session_state.imagens_temp_cache[cat_id]
-                del dados["categorias"][cat_id]
-                salvar_dados_github(dados, sha)
-                st.rerun()
+                    st.image(st.session_state.imagens_temp_cache[cat_id], caption="💡 Pré-visualização da imagem", width=200)
+                    if st.button("💾 Salvar Nova Capa", key=f"btn_salvar_img_{cat_id}"):
+                        bytes_data = st.session_state.imagens_temp_cache[cat_id]
+                        cat_info["capa_b64"] = base64.b64encode(bytes_data).decode("utf-8")
+                        del st.session_state.imagens_temp_cache[cat_id]
+                        salvar_dados_github(dados, sha)
+                        st.rerun()
+                    
+                nome_editado = st.text_input("Editar Nome", value=cat_info["nome"], key=f"nome_{cat_id}")
+                if nome_editado != cat_info["nome"] and nome_editado.strip() != "":
+                    cat_info["nome"] = nome_editado.strip()
+                    salvar_dados_github(dados, sha)
+                    st.rerun()
+                
+                if st.button("Excluir Categoria do Sistema", key=f"rem_cat_{cat_id}"):
+                    if cat_id in st.session_state.imagens_temp_cache:
+                        del st.session_state.imagens_temp_cache[cat_id]
+                    del dados["categorias"][cat_id]
+                    salvar_dados_github(dados, sha)
+                    st.rerun()
                 
             st.markdown('</div>', unsafe_allow_html=True)
             
@@ -400,7 +420,6 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
         
         col_cad1, col_cad2 = st.columns(2)
         novo_nome_loja = col_cad1.text_input("Nome da Loja (Nome Fantasia)", placeholder="Ex: Pet Shop do Totó")
-        # NOVO CAMPO: Escolha customizada do código de acesso
         novo_codigo_loja = col_cad2.text_input("Código de Acesso Customizado", placeholder="Ex: #totopet").strip()
         
         if st.button("Criar Card de Loja"):
@@ -412,11 +431,9 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
             elif not cod_limpo or cod_limpo == "#":
                 st.error("Defina um Código de Acesso válido para a loja.")
             else:
-                # Garante que o código comece com #
                 if not cod_limpo.startswith("#"):
                     cod_limpo = f"#{cod_limpo}"
                 
-                # Validação de duplicidade: impede que um código igual sobrescreva dados existentes
                 if cod_limpo in dados["dados_lojas"]:
                     st.error(f"O código {cod_limpo} já está em uso por outra loja! Escolha um código diferente.")
                 else:
