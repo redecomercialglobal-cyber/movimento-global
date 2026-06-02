@@ -145,7 +145,7 @@ if not st.session_state.logado:
     st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allow_html=True)
     st.markdown('<div class="main-subtitle">Um movimento que une lojas e clientes</div>', unsafe_allow_html=True)
     
-    id_limpo = st.text_input("Identificação (CPF)", key="txt_login", on_change=callback_login_input).strip()
+    id_limpo = st.text_input("Identificação (CPF ou #CódigoLoja)", key="txt_login", on_change=callback_login_input).strip()
 
     if st.button("Entrar", key="btn_entrar_login"):
         if id_limpo:
@@ -379,6 +379,7 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
                 st.markdown(f"""
                     <div class="card">
                         <div class="card-title">🏢 Loja: {nome_fantasia_exibicao}</div>
+                        <div style="font-size:13px; color:#6B7280; margin-top:-5px; margin-bottom:10px;">Código de Acesso: <b>{loj}</b></div>
                     </div>
                 """, unsafe_allow_html=True)
                 
@@ -397,21 +398,34 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
         st.write("---")
         st.subheader("Adicionar Nova Loja nesta Categoria")
         
-        novo_nome_loja = st.text_input("Nome da Loja (Nome Fantasia)", placeholder="Ex: Pet Shop do Totó")
+        col_cad1, col_cad2 = st.columns(2)
+        novo_nome_loja = col_cad1.text_input("Nome da Loja (Nome Fantasia)", placeholder="Ex: Pet Shop do Totó")
+        # NOVO CAMPO: Escolha customizada do código de acesso
+        novo_codigo_loja = col_cad2.text_input("Código de Acesso Customizado", placeholder="Ex: #totopet").strip()
         
         if st.button("Criar Card de Loja"):
             nome_limpo = novo_nome_loja.strip()
-            if nome_limpo:
-                total_lojas_existentes = len(dados["dados_lojas"].keys())
-                novo_cod_gerado = f"#loja{total_lojas_existentes + 1}"
+            cod_limpo = novo_codigo_loja.strip()
+            
+            if not nome_limpo:
+                st.error("O nome da loja não pode estar vazio.")
+            elif not cod_limpo or cod_limpo == "#":
+                st.error("Defina um Código de Acesso válido para a loja.")
+            else:
+                # Garante que o código comece com #
+                if not cod_limpo.startswith("#"):
+                    cod_limpo = f"#{cod_limpo}"
                 
-                if novo_cod_gerado not in dados["categorias"][cat_id]["lojas"]:
-                    dados["categorias"][cat_id]["lojas"].append(novo_cod_gerado)
+                # Validação de duplicidade: impede que um código igual sobrescreva dados existentes
+                if cod_limpo in dados["dados_lojas"]:
+                    st.error(f"O código {cod_limpo} já está em uso por outra loja! Escolha um código diferente.")
+                else:
+                    dados["categorias"][cat_id]["lojas"].append(cod_limpo)
                     
-                    if novo_cod_gerado not in dados["clientes_por_loja"]:
-                        dados["clientes_por_loja"][novo_cod_gerado] = {}
+                    if cod_limpo not in dados["clientes_por_loja"]:
+                        dados["clientes_por_loja"][cod_limpo] = {}
                         
-                    dados["dados_lojas"][novo_cod_gerado] = {
+                    dados["dados_lojas"][cod_limpo] = {
                         "nome_fantasia": nome_limpo,
                         "razao_social": "", "cnpj": "", "inscricao_estadual": "", "inscricao_municipal": "",
                         "endereco_completo": "", "telefone": "", "whatsapp": "", "email": "",
@@ -420,10 +434,8 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
                     }
                     
                     if salvar_dados_github(dados, sha):
-                        st.success(f"Loja '{nome_limpo}' vinculada! Código de acesso operacional gerado: {novo_cod_gerado}")
+                        st.success(f"Loja '{nome_limpo}' vinculada com sucesso! Código de acesso: {cod_limpo}")
                         st.rerun()
-            else:
-                st.error("O nome da loja não pode estar vazio.")
 
     # -----------------------------------------------------
     # VISTA C: DETALHAMENTO ISOLADO E FICHA CADASTRAL DA LOJA
@@ -519,7 +531,6 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
                 f_pix = st.text_input("Chave PIX", value=info_loja.get("chave_pix", ""))
                 f_segmento = st.text_input("Segmento Comercial da Empresa", value=info_loja.get("segmento", dados["categorias"][cat_id]["nome"]))
                 
-                # CORREÇÃO CRÍTICA AQUI: Usando o componente de submissão nativo correto do Streamlit
                 salvar_cadastro = st.form_submit_button(label="💾 Salvar Ficha Cadastral")
                 
                 if salvar_cadastro:
