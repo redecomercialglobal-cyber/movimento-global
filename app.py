@@ -20,7 +20,7 @@ def aplicar_estilo():
         .card { background-color: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         .card-title { font-size: 20px; font-weight: 700; color: #1F2937; margin-bottom: 10px; }
         
-        /* Ajuste Focado para Capas de Categorias (Imagem ligeiramente maior conforme solicitado) */
+        /* Ajuste Focado para Capas de Categorias */
         .container-imagem-capa { text-align: center; margin-bottom: 15px; background-color: #F9FAFB; border-radius: 8px; padding: 10px; }
         .container-imagem-capa img { max-height: 190px; object-fit: contain; border-radius: 6px; }
         
@@ -36,8 +36,8 @@ def aplicar_estilo():
         div.stButton > button[key^="entrar_cat_"]:hover { background-color: #059669 !important; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3); }
         
         /* Botões de Exclusão / Perigo */
-        div.stButton > button[key^="btn_sair"], div.stButton > button[key^="rem_"], div.stButton > button[key^="del_"], div.stButton > button[key^="btn_reset"], div.stButton > button[key^="btn_remover_capa"] { background-color: #EF4444 !important; color: white !important; }
-        div.stButton > button[key^="btn_sair"]:hover, div.stButton > button[key^="rem_"]:hover, div.stButton > button[key^="del_"]:hover, div.stButton > button[key^="btn_reset"]:hover, div.stButton > button[key^="btn_remover_capa"]:hover { background-color: #DC2626 !important; }
+        div.stButton > button[key^="btn_sair"], div.stButton > button[key^="rem_"], div.stButton > button[key^="del_"], div.stButton > button[key^="btn_reset"], div.stButton > button[key^="btn_remover_capa"], div.stButton > button[key^="conf_del_"], div.stButton > button[key^="conf_reset_"] { background-color: #EF4444 !important; color: white !important; }
+        div.stButton > button[key^="btn_sair"]:hover, div.stButton > button[key^="rem_"]:hover, div.stButton > button[key^="del_"]:hover, div.stButton > button[key^="btn_reset"]:hover, div.stButton > button[key^="btn_remover_capa"]:hover, div.stButton > button[key^="conf_del_"]:hover, div.stButton > button[key^="conf_reset_"]:hover { background-color: #DC2626 !important; }
     </style>
     """
     st.markdown(css_style, unsafe_allow_html=True)
@@ -110,6 +110,12 @@ if "imagens_temp_cache" not in st.session_state:
 if "contrato_temp_cache" not in st.session_state:
     st.session_state.contrato_temp_cache = None
 
+# Estados de confirmação para deleção
+if "deletar_cliente_id" not in st.session_state:
+    st.session_state.deletar_cliente_id = None
+if "zerar_loja_id" not in st.session_state:
+    st.session_state.zerar_loja_id = False
+
 dados, sha = carregar_dados_github()
 
 if "categorias" not in dados:
@@ -154,7 +160,7 @@ def callback_cliente_cpf_input():
 # =========================================================
 if not st.session_state.logado:
     st.markdown('<div class="main-title">GLOBAL</div>', unsafe_allow_html=True)
-    st.markdown('<div class="main-subtitle">Um movemento que une lojas e clientes</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-subtitle">Um movimento que une lojas e clientes</div>', unsafe_allow_html=True)
     
     id_limpo = st.text_input("Identificação (CPF)", key="txt_login", on_change=callback_login_input).strip()
 
@@ -178,7 +184,7 @@ if not st.session_state.logado:
                     st.session_state.usuario_atual = id_limpo
                     st.rerun()
                 else:
-                    st.error("Código de lojista não identificado no systema.")
+                    st.error("Código de lojista não identificado no sistema.")
             else:
                 numeros_cpf = "".join([c for c in id_limpo if c.isdigit()])
                 if len(numeros_cpf) == 11:
@@ -292,7 +298,6 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
         for cat_id, cat_info in list(dados["categorias"].items()):
             st.markdown('<div class="card">', unsafe_allow_html=True)
             
-            # Renderização Controlada da Imagem de Capa (Dimensão aumentada sutilmente via CSS)
             if cat_info.get("capa_b64"):
                 try:
                     html_img = f'<div class="container-imagem-capa"><img src="data:image/png;base64,{cat_info["capa_b64"]}"/></div>'
@@ -302,21 +307,16 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
             else:
                 st.info("Nenhuma imagem de capa cadastrada para esta categoria.")
             
-            # Nome da categoria aumentado e destacado como título real do card
             st.markdown(f'<div class="categoria-card-titulo">📂 {cat_info["nome"]}</div>', unsafe_allow_html=True)
             
-            # Botão de Ação Principal (Entrar) em posição de destaque absoluto
             if st.button(f"Entrar em {cat_info['nome']}", key=f"entrar_cat_{cat_id}"):
                 st.session_state.categoria_selecionada = cat_id
                 st.session_state.gestor_view = "dentro_categoria"
                 st.rerun()
             
-            st.write("") # Pequeno espaçador interno
+            st.write("") 
             
-            # Configurações adicionais encolhidas abaixo (Área de gerenciamento interna do card)
             with st.expander("⚙️ Configurações da Categoria"):
-                
-                # NOVIDADE: O botão de remoção da capa agora fica localizado estrategicamente aqui dentro
                 if cat_info.get("capa_b64"):
                     if st.button("🗑️ Remover Capa Atual", key=f"btn_remover_capa_{cat_id}"):
                         cat_info["capa_b64"] = ""
@@ -341,12 +341,12 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
                         st.rerun()
                     
                 nome_editado = st.text_input("Editar Nome", value=cat_info["nome"], key=f"nome_{cat_id}")
-                if nome_editado != cat_info["nome"] and nome_editated.strip() != "":
+                if nome_editado != cat_info["nome"] and nome_editado.strip() != "":
                     cat_info["nome"] = nome_editado.strip()
                     salvar_dados_github(dados, sha)
                     st.rerun()
                 
-                if st.button("Excluir Categoria do Systema", key=f"rem_cat_{cat_id}"):
+                if st.button("Excluir Categoria do Sistema", key=f"rem_cat_{cat_id}"):
                     if cat_id in st.session_state.imagens_temp_cache:
                         del st.session_state.imagens_temp_cache[cat_id]
                     del dados["categorias"][cat_id]
@@ -475,6 +475,8 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
             st.session_state.gestor_view = "dentro_categoria"
             st.session_state.loja_selecionada = None
             st.session_state.contrato_temp_cache = None
+            st.session_state.deletar_cliente_id = None
+            st.session_state.zerar_loja_id = False
             st.rerun()
             
         st.markdown(f'<div class="main-title">{info_loja.get("nome_fantasia")}</div>', unsafe_allow_html=True)
@@ -503,17 +505,43 @@ elif st.session_state.logado and st.session_state.tipo_usuario == "gestor":
                     col_c, col_p, col_a = st.columns([2, 1, 1])
                     col_c.write(f"💳 CPF: {cli}")
                     col_p.write(f"**{pts}** pts")
-                    if col_a.button("Excluir Cliente", key=f"del_cli_{idx}"):
-                        del dados["clientes_por_loja"][loja_id][cli]
-                        salvar_dados_github(dados, sha)
-                        st.rerun()
+                    
+                    # Interface de confirmação individual por cliente
+                    if st.session_state.deletar_cliente_id == cli:
+                        col_a.warning("Tem certeza?")
+                        c_sim, c_nao = col_a.columns(2)
+                        if c_sim.button("Sim", key=f"conf_del_sim_{idx}"):
+                            del dados["clientes_por_loja"][loja_id][cli]
+                            st.session_state.deletar_cliente_id = None
+                            salvar_dados_github(dados, sha)
+                            st.rerun()
+                        if c_nao.button("Não", key=f"conf_del_nao_{idx}"):
+                            st.session_state.deletar_cliente_id = None
+                            st.rerun()
+                    else:
+                        if col_a.button("Excluir Cliente", key=f"del_cli_{idx}"):
+                            st.session_state.deletar_cliente_id = cli
+                            st.rerun()
                 
                 st.write("---")
-                if st.button("🚨 Zerar Banco de Dados desta Loja", type="primary", key="btn_reset_loja_completo"):
-                    dados["clientes_por_loja"][loja_id] = {}
-                    salvar_dados_github(dados, sha)
-                    st.success("Dados da loja limpos com sucesso!")
-                    st.rerun()
+                
+                # Interface de confirmação para ZERAR toda a loja
+                if st.session_state.zerar_loja_id:
+                    st.warning("⚠️ VOCÊ TEM CERTEZA ABSOLUTA? Isso vai apagar TODOS os clientes e pontos desta loja permanentemente!")
+                    c_reset_sim, c_reset_nao = st.columns(2)
+                    if c_reset_sim.button("💥 Sim, zerar tudo!", key="conf_reset_loja_sim"):
+                        dados["clientes_por_loja"][loja_id] = {}
+                        st.session_state.zerar_loja_id = False
+                        salvar_dados_github(dados, sha)
+                        st.success("Dados da loja limpos com sucesso!")
+                        st.rerun()
+                    if c_reset_nao.button("Cancelar", key="conf_reset_loja_nao"):
+                        st.session_state.zerar_loja_id = False
+                        st.rerun()
+                else:
+                    if st.button("🚨 Zerar Banco de Dados desta Loja", type="primary", key="btn_reset_loja_completo"):
+                        st.session_state.zerar_loja_id = True
+                        st.rerun()
             else:
                 st.info("Nenhum cliente comprou nesta loja até agora.")
                 
