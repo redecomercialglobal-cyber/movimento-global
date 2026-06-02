@@ -19,5 +19,26 @@
     },
     "clientes_por_loja": {
         "#loja123": {}
+    },
+    "dados_lojas": {
+        "#loja123": {
+            "nome_fantasia": "teste",
+            "razao_social": "",
+            "cnpj": "",
+            "inscricao_estadual": "",
+            "inscricao_municipal": "",
+            "endereco_completo": "",
+            "telefone": "",
+            "whatsapp": "",
+            "email": "",
+            "nome_proprietario": "",
+            "cpf_representante": "",
+            "rg_representante": "",
+            "dados_bancarios": "",
+            "chave_pix": "",
+            "segmento": "",
+            "contrato_b64": "",
+            "inscricao_state": ""
+        }
     }
 }
