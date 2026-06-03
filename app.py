@@ -44,27 +44,6 @@ def aplicar_estilo():
 
 aplicar_estilo()
 
-hide_streamlit_style = """
-    <style>
-    /* Esconde o menu do Streamlit */
-    #MainMenu {display: none !important;}
-    
-    /* Esconde o rodapé */
-    footer {display: none !important;}
-    
-    /* Esconde o botão de deploy */
-    .stDeployButton {display: none !important;}
-    
-    /* Esconde o ícone de marca/menu lateral */
-    [data-testid="stToolbar"] {display: none !important;}
-    
-    /* Tenta esconder o ícone flutuante do Streamlit no canto inferior */
-    [data-testid="stDecoration"] {display: none !important;}
-    div[class*="stAppDeployButton"] {display: none !important;}
-    </style>
-    """
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-    
 # --- CONFIGURAÇÕES DE ACESSO AO GITHUB ---
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
 REPO_NAME = st.secrets["REPO_NAME"]
